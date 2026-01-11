@@ -31,6 +31,7 @@ from app.models.user import User
 from app.pipeline.issue_builder import build_daily_issue, get_missed_from_yesterday
 from app.services.discord_service import send_discord_digest
 from app.services.email_service import send_daily_digest
+from app.services.twitter_service import send_twitter_digest
 from app.video.orchestrator import generate_videos_for_issue
 
 logger = get_logger(__name__)
@@ -169,6 +170,9 @@ async def main(dry_run: bool = False) -> None:
             sent_count = await send_digest_emails(issue_date, items)
             logger.bind(count=sent_count).info("emails_sent")
 
+            # Get config for channel settings
+            config = get_config()
+
             # Post to Discord
             try:
                 discord_sent = await send_discord_digest(issue_date, items)
@@ -178,8 +182,17 @@ async def main(dry_run: bool = False) -> None:
                 # Don't fail the job for Discord errors
                 logger.bind(error=str(e)).error("discord_send_failed")
 
+            # Post to Twitter
+            if config.twitter.enabled:
+                try:
+                    twitter_sent = await send_twitter_digest(issue_date, items)
+                    if twitter_sent:
+                        logger.info("twitter_digest_sent")
+                except Exception as e:
+                    # Don't fail the job for Twitter errors
+                    logger.bind(error=str(e)).error("twitter_send_failed")
+
             # Generate videos for top stories (if enabled)
-            config = get_config()
             if config.video.enabled:
                 try:
                     ranked_with_summaries = result.get("ranked_with_summaries", [])
