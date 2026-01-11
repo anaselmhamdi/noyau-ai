@@ -546,6 +546,11 @@ async def generate_single_video(
         if clips_dir.exists():
             shutil.rmtree(clips_dir)
 
+        # Cleanup entire video directory after successful YouTube upload
+        if youtube_result:
+            log.info("cleaning_up_video_files")
+            shutil.rmtree(video_dir)
+
         return result
 
     except Exception as e:
