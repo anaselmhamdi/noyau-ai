@@ -48,10 +48,21 @@ services:
       LOG_DIR: /app/logs
     volumes:
       - ./config.yml:/app/config.yml:ro
-      - ./public:/app/public
     ports:
       - "8000:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4321
+      API_URL: http://api:8000
+    ports:
+      - "4321:4321"
 
   caddy:
     image: caddy:2-alpine
@@ -65,6 +76,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+      - ui
 
   # Self-hosted Nitter for X/Twitter RSS feeds
   nitter-redis:

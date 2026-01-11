@@ -13,7 +13,8 @@ let latestDate = new Date().toISOString().split('T')[0];
 let previewItems: Array<{ rank: number; headline: string; teaser: string }> = [];
 
 try {
-  const res = await fetch(`${import.meta.env.API_URL || ''}/api/issues/latest`);
+  const apiUrl = process.env.API_URL || '';
+  const res = await fetch(`${apiUrl}/api/issues/latest`);
   if (res.ok) {
     const data = await res.json();
     latestDate = data.date || latestDate;

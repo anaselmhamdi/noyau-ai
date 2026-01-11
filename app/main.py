@@ -1,19 +1,13 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import get_settings
 from app.core.logging import setup_logging
 from app.core.scheduler import start_scheduler, stop_scheduler
-
-# UI static files directory (built by Docker)
-UI_DIR = Path(__file__).parent.parent / "public"
 
 settings = get_settings()
 
@@ -55,28 +49,3 @@ app.include_router(api_router)
 async def health_check() -> dict[str, str]:
     """Health check endpoint for load balancers."""
     return {"status": "healthy"}
-
-
-# Serve static UI files (only if built UI exists with index.html)
-if (UI_DIR / "index.html").exists():
-    # Mount static assets if they exist
-    astro_dir = UI_DIR / "_astro"
-    if astro_dir.exists():
-        app.mount("/_astro", StaticFiles(directory=astro_dir), name="astro_assets")
-
-    @app.get("/{path:path}")
-    async def serve_spa(request: Request, path: str) -> FileResponse:
-        """Serve static files or fall back to index.html for SPA routing."""
-        file_path = UI_DIR / path
-
-        # Serve exact file if it exists
-        if file_path.is_file():
-            return FileResponse(file_path)
-
-        # Try with .html extension (Astro generates /about -> /about.html)
-        html_path = UI_DIR / f"{path}.html"
-        if html_path.is_file():
-            return FileResponse(html_path)
-
-        # Fall back to index.html for SPA routing
-        return FileResponse(UI_DIR / "index.html")

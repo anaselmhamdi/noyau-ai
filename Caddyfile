@@ -7,8 +7,25 @@
 }
 
 noyau.news {
-    # Reverse proxy everything to FastAPI (handles both API and static files)
-    reverse_proxy api:8000
+    # API routes -> FastAPI
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # Auth routes -> FastAPI
+    handle /auth/* {
+        reverse_proxy api:8000
+    }
+
+    # Health check -> FastAPI
+    handle /health {
+        reverse_proxy api:8000
+    }
+
+    # Everything else -> Astro UI
+    handle {
+        reverse_proxy ui:4321
+    }
 
     # Compression
     encode gzip

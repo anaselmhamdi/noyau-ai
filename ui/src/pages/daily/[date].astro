@@ -16,7 +16,8 @@ export const prerender = false;
 
 const { date } = Astro.params;
 
-const res = await fetch(`${import.meta.env.API_URL || ''}/api/issues/${date}?view=public`);
+const apiUrl = process.env.API_URL || '';
+const res = await fetch(`${apiUrl}/api/issues/${date}?view=public`);
 const issue = await res.json();
 
 const formattedDate = new Date(date!).toLocaleDateString('en-US', {

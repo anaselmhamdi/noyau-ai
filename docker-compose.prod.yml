@@ -7,7 +7,6 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - ./config.yml:/app/config.yml:ro
-      - static_files:/app/public
     ports:
       - "8000:8000"
     healthcheck:
@@ -18,6 +17,23 @@ services:
     depends_on:
       - nitter
 
+  ui:
+    image: ghcr.io/anaselmhamdi/noyau-ai-ui:latest
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4321
+      API_URL: http://api:8000
+    ports:
+      - "4321:4321"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4321/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -26,11 +42,11 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - static_files:/srv/public:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - api
+      - ui
 
   # Self-hosted Nitter for X/Twitter RSS feeds
   nitter-redis:
@@ -73,7 +89,6 @@ services:
     command: --label-enable
 
 volumes:
-  static_files:
   caddy_data:
   caddy_config:
   nitter_redis:
