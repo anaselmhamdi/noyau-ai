@@ -1,5 +1,8 @@
+import asyncio
 import logging
+import os
 import sys
+from pathlib import Path
 from typing import Any
 
 from loguru import logger
@@ -24,6 +27,23 @@ class InterceptHandler(logging.Handler):
             depth += 1
 
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+
+
+def _upload_rotated_log_to_s3(log_path: str) -> None:
+    """Upload rotated log file to S3 bucket."""
+    try:
+        from app.services.storage_service import get_storage_service
+
+        storage = get_storage_service()
+        if storage.is_configured():
+            # Run async upload in sync context
+            asyncio.get_event_loop().run_until_complete(
+                storage.archive_log_file(Path(log_path), compress=True)
+            )
+            logger.info(f"Uploaded rotated log to S3: {log_path}")
+    except Exception as e:
+        # Don't fail if S3 upload fails - just log to stderr
+        print(f"Failed to upload log to S3: {e}", file=sys.stderr)
 
 
 def setup_logging() -> None:
@@ -57,16 +77,15 @@ def setup_logging() -> None:
             diagnose=False,
         )
 
-        # File logging with rotation for production
-        import os
-
-        log_dir = settings.log_dir
+        # File logging with rotation - use /app/logs inside container
+        log_dir = "/app/logs"
         os.makedirs(log_dir, exist_ok=True)
+
         logger.add(
             f"{log_dir}/app.log",
             level="INFO",
-            rotation="100 MB",
-            retention="7 days",
+            rotation="50 MB",
+            retention=_upload_rotated_log_to_s3,  # Upload to S3 on rotation
             compression="gz",
             serialize=True,
         )
