@@ -105,7 +105,8 @@ resource "hcloud_server" "main" {
     verifalia_cache_ttl_hours = var.verifalia_cache_ttl_hours
 
     # Discord
-    discord_webhook_url = var.discord_webhook_url
+    discord_webhook_url       = var.discord_webhook_url
+    discord_error_webhook_url = var.discord_error_webhook_url
 
     # Video
     video_enabled           = var.video_enabled

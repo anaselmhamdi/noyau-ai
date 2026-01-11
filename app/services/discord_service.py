@@ -189,3 +189,65 @@ async def send_discord_digest(issue_date: date, items: list[dict]) -> bool:
         except Exception as e:
             logger.bind(error=str(e)).error("discord_send_error")
             return False
+
+
+async def send_discord_error(
+    title: str,
+    error: str,
+    context: dict | None = None,
+) -> bool:
+    """
+    Send error notification to Discord via error webhook.
+
+    Args:
+        title: Error title/summary
+        error: Error message/details
+        context: Optional context dict (email, endpoint, etc.)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    config = get_config()
+
+    error_webhook_url = config.discord.error_webhook_url
+    if not error_webhook_url:
+        logger.debug("discord_error_webhook_not_set")
+        return False
+
+    # Build fields from context
+    fields: list[dict[str, str | bool]] = []
+    if context:
+        for key, value in context.items():
+            fields.append(
+                {
+                    "name": key,
+                    "value": str(value)[:1024],
+                    "inline": True,
+                }
+            )
+
+    # Build embed
+    embed = {
+        "title": f":warning: {title}",
+        "description": error[:2000],
+        "color": 0xE74C3C,  # Red
+        "fields": fields,
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.post(error_webhook_url, json={"embeds": [embed]})
+
+            if resp.status_code not in (200, 204):
+                logger.bind(status=resp.status_code).error("discord_error_webhook_failed")
+                return False
+
+            logger.debug("discord_error_sent")
+            return True
+
+        except httpx.TimeoutException:
+            logger.error("discord_error_webhook_timeout")
+            return False
+        except Exception as e:
+            logger.bind(error=str(e)).error("discord_error_send_failed")
+            return False

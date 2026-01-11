@@ -102,6 +102,8 @@ verifalia_cache_ttl_hours = 24
 # Discord webhook for notifications
 # Create at: Server Settings > Integrations > Webhooks
 discord_webhook_url = ""
+# Separate webhook for error notifications (private channel)
+discord_error_webhook_url = ""
 
 # =============================================================================
 # LLM Configuration

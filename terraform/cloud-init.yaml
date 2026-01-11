@@ -102,6 +102,7 @@ write_files:
       # Discord
       # =============================================================================
       DISCORD_WEBHOOK_URL=${discord_webhook_url}
+      DISCORD_ERROR_WEBHOOK_URL=${discord_error_webhook_url}
 
       # =============================================================================
       # Twitter/Nitter

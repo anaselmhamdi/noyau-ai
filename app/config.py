@@ -49,6 +49,7 @@ class Settings(BaseSettings):
 
     # Discord
     discord_webhook_url: str = Field(default="")
+    discord_error_webhook_url: str = Field(default="")
 
     # Video Generation
     video_enabled: bool = Field(default=False)
@@ -153,6 +154,7 @@ class DiscordConfig:
     def __init__(self, data: dict[str, Any], settings: "Settings") -> None:
         self.enabled: bool = data.get("enabled", False)
         self.webhook_url: str = settings.discord_webhook_url
+        self.error_webhook_url: str = settings.discord_error_webhook_url
         self.invite_url: str = data.get("invite_url", "")
         self.post_time_utc: str = data.get("post_time_utc", "07:30")
 

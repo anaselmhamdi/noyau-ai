@@ -19,6 +19,7 @@ from app.core.security import (
 from app.dependencies import DBSession
 from app.models.user import MagicLink, Session, User
 from app.schemas.auth import MagicLinkRequest, MagicLinkResponse
+from app.services.discord_service import send_discord_error
 from app.services.email_service import send_magic_link_email
 from app.services.email_validation import ValidationStatus, get_email_validator
 from app.services.posthog_client import track_session_started, track_signup_completed
@@ -92,6 +93,12 @@ async def request_magic_link(
     except Exception as e:
         # Log error but don't expose to user (to not leak email existence)
         logger.bind(error=str(e), email=body.email).error("magic_link_email_failed")
+        # Report to Discord
+        await send_discord_error(
+            title="Magic Link Email Failed",
+            error=str(e),
+            context={"email": body.email, "endpoint": "/auth/request-link"},
+        )
 
     return MagicLinkResponse()
 

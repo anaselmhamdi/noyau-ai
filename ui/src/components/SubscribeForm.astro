@@ -59,6 +59,11 @@ const formLocation = isHero ? 'hero' : 'footer';
   const container = document.getElementById('subscribe');
   const form = document.getElementById('subscribe-form') as HTMLFormElement;
   const emailInput = document.getElementById('subscribe-email') as HTMLInputElement;
+  const messageDiv = document.getElementById('subscribe-message');
+  const successMsg = document.getElementById('subscribe-success');
+  const errorMsg = document.getElementById('subscribe-error');
+  const submitBtn = form?.querySelector('button[type="submit"]') as HTMLButtonElement;
+  const btnText = submitBtn?.querySelector('span');
 
   if (container && form && emailInput) {
     const formLocation = container.dataset.formLocation as 'hero' | 'footer';
@@ -77,13 +82,52 @@ const formLocation = isHero ? 'hero' : 'footer';
 
     observer.observe(container);
 
-    // Track when user submits
+    // Handle form submission with JSON
     let signupStartedTracked = false;
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
       const email = emailInput.value;
-      if (email && !signupStartedTracked) {
+      if (!email) return;
+
+      // Track analytics
+      if (!signupStartedTracked) {
         signupStartedTracked = true;
         trackSignupStarted(email, formLocation, issueDate);
+      }
+
+      // Update UI to loading state
+      if (submitBtn) submitBtn.disabled = true;
+      if (btnText) btnText.textContent = 'Sending...';
+      if (messageDiv) messageDiv.classList.add('hidden');
+      if (successMsg) successMsg.classList.add('hidden');
+      if (errorMsg) errorMsg.classList.add('hidden');
+
+      try {
+        const response = await fetch('/auth/request-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, redirect: '/' }),
+        });
+
+        if (response.ok) {
+          // Show success message
+          if (messageDiv) messageDiv.classList.remove('hidden');
+          if (successMsg) successMsg.classList.remove('hidden');
+          form.classList.add('hidden');
+        } else {
+          // Show error message
+          if (messageDiv) messageDiv.classList.remove('hidden');
+          if (errorMsg) errorMsg.classList.remove('hidden');
+          if (submitBtn) submitBtn.disabled = false;
+          if (btnText) btnText.textContent = 'Get the brief';
+        }
+      } catch (err) {
+        // Network error
+        if (messageDiv) messageDiv.classList.remove('hidden');
+        if (errorMsg) errorMsg.classList.remove('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+        if (btnText) btnText.textContent = 'Get the brief';
       }
     });
   }

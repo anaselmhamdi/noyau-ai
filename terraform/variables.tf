@@ -194,6 +194,12 @@ variable "discord_webhook_url" {
   default     = ""
 }
 
+variable "discord_error_webhook_url" {
+  description = "Discord webhook URL for error notifications (private channel)"
+  type        = string
+  default     = ""
+}
+
 # =============================================================================
 # LLM Configuration
 # =============================================================================
