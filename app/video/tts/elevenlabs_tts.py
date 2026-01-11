@@ -97,8 +97,8 @@ class ElevenLabsTTS(TTSProvider):
         if not alignment or not alignment.characters:
             return []
 
-        segments = []
-        words = []
+        segments: list[SubtitleSegment] = []
+        words: list[dict[str, str | float]] = []
         current_word = ""
         word_start = 0.0
         word_end = 0.0
@@ -121,9 +121,9 @@ class ElevenLabsTTS(TTSProvider):
                     current_word = ""
             else:
                 if not current_word:
-                    word_start = starts[i] if i < len(starts) else word_end
+                    word_start = float(starts[i]) if i < len(starts) else word_end
                 current_word += char
-                word_end = ends[i] if i < len(ends) else word_end
+                word_end = float(ends[i]) if i < len(ends) else word_end
 
         # Don't forget the last word
         if current_word:
@@ -136,7 +136,7 @@ class ElevenLabsTTS(TTSProvider):
             )
 
         # Group words into subtitle segments
-        current_words = []
+        current_words: list[dict[str, str | float]] = []
         segment_start = 0.0
 
         for word in words:
@@ -145,27 +145,27 @@ class ElevenLabsTTS(TTSProvider):
                 if current_words:
                     segments.append(
                         SubtitleSegment(
-                            text=" ".join(w["text"] for w in current_words),
+                            text=" ".join(str(w["text"]) for w in current_words),
                             start_time=segment_start,
-                            end_time=current_words[-1]["end"],
+                            end_time=float(current_words[-1]["end"]),
                         )
                     )
                     current_words = []
                 continue
 
             if not current_words:
-                segment_start = word["start"]
+                segment_start = float(word["start"])
 
             current_words.append(word)
 
             # Create segment when we hit word limit or sentence end
-            is_sentence_end = word["text"].rstrip().endswith((".", "!", "?"))
+            is_sentence_end = str(word["text"]).rstrip().endswith((".", "!", "?"))
             if len(current_words) >= self.WORDS_PER_SUBTITLE or is_sentence_end:
                 segments.append(
                     SubtitleSegment(
-                        text=" ".join(w["text"] for w in current_words),
+                        text=" ".join(str(w["text"]) for w in current_words),
                         start_time=segment_start,
-                        end_time=word["end"],
+                        end_time=float(word["end"]),
                     )
                 )
                 current_words = []
@@ -174,9 +174,9 @@ class ElevenLabsTTS(TTSProvider):
         if current_words:
             segments.append(
                 SubtitleSegment(
-                    text=" ".join(w["text"] for w in current_words),
+                    text=" ".join(str(w["text"]) for w in current_words),
                     start_time=segment_start,
-                    end_time=current_words[-1]["end"],
+                    end_time=float(current_words[-1]["end"]),
                 )
             )
 

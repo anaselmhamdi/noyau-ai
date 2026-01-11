@@ -194,7 +194,7 @@ class NitterFetcher(BaseFetcher):
         # Get content
         text = entry.get("title", "")
         if entry.get("summary"):
-            text = clean_html(entry.summary)
+            text = clean_html(entry.summary)  # type: ignore[attr-defined]
 
         # Extract title (first line or truncated text)
         title_text = text.split("\n")[0] if "\n" in text else text
@@ -205,7 +205,7 @@ class NitterFetcher(BaseFetcher):
         published = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
             try:
-                published = datetime(*entry.published_parsed[:6], tzinfo=UTC)
+                published = datetime(*entry.published_parsed[:6], tzinfo=UTC)  # type: ignore[misc]
             except Exception:
                 pass
         if not published:

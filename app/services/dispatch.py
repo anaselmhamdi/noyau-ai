@@ -246,7 +246,8 @@ async def get_issue_items(db: AsyncSession, issue_date: date) -> list[dict]:
 async def get_latest_issue_date(db: AsyncSession) -> date | None:
     """Get the most recent issue date."""
     result = await db.execute(select(Issue.issue_date).order_by(Issue.issue_date.desc()).limit(1))
-    return result.scalar_one_or_none()
+    issue_date: date | None = result.scalar_one_or_none()
+    return issue_date
 
 
 async def dispatch_issue(

@@ -40,7 +40,8 @@ async def get_current_user_optional(
         await db.delete(session)
         return None
 
-    return session.user
+    user: User = session.user
+    return user
 
 
 async def get_current_user(

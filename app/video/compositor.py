@@ -416,7 +416,7 @@ def _create_cta_clips(
     Returns:
         List of TextClips for CTA section (may be empty if no time available)
     """
-    clips = []
+    clips: list[TextClip] = []
 
     if timeline.total_duration <= timeline.body_end:
         return clips
@@ -536,12 +536,15 @@ def compose_video(
     Returns:
         VideoGenerationResult, or None if composition failed
     """
+    actual_config: VideoConfigProtocol
     if config is None:
         from app.video.config import VideoConfig as DefaultConfig
 
-        config = DefaultConfig()
-    format_config = config.format
-    style = config.style
+        actual_config = DefaultConfig()  # type: ignore[assignment]
+    else:
+        actual_config = config
+    format_config = actual_config.format
+    style = actual_config.style
 
     try:
         # Load audio and calculate timeline

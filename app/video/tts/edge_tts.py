@@ -90,8 +90,8 @@ class EdgeTTS(TTSProvider):
         if not word_boundaries:
             return []
 
-        segments = []
-        current_words = []
+        segments: list[SubtitleSegment] = []
+        current_words: list[str] = []
         segment_start = 0.0
 
         for i, word in enumerate(word_boundaries):
@@ -123,7 +123,7 @@ class EdgeTTS(TTSProvider):
             from mutagen.mp3 import MP3
 
             audio = MP3(str(path))
-            return audio.info.length
+            return float(audio.info.length)
         except ImportError:
             # Fallback: estimate from file size (~16kbps for speech)
             file_size = path.stat().st_size

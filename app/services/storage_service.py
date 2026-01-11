@@ -79,9 +79,9 @@ class S3StorageService:
         content_type: str,
         public: bool = False,
         metadata: dict[str, str] | None = None,
-    ) -> dict:
+    ) -> dict[str, str | dict[str, str]]:
         """Build ExtraArgs dict for S3 upload operations."""
-        extra_args = {"ContentType": content_type}
+        extra_args: dict[str, str | dict[str, str]] = {"ContentType": content_type}
         if public:
             extra_args["ACL"] = "public-read"
         if metadata:
@@ -338,11 +338,12 @@ class S3StorageService:
             return None
 
         try:
-            return self._client.generate_presigned_url(
+            url: str = self._client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": self.bucket_name, "Key": key},
                 ExpiresIn=expiration,
             )
+            return url
         except ClientError as e:
             logger.bind(key=key, error=str(e)).error("presigned_url_generation_failed")
             return None

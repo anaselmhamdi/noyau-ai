@@ -110,7 +110,9 @@ async def run_fetcher(
                     if not dry_run and db_session:
                         try:
                             content_item = await upsert_content_item(db_session, item)
-                            await create_metrics_snapshot(db_session, content_item.id, item.metrics)
+                            await create_metrics_snapshot(
+                                db_session, str(content_item.id), item.metrics
+                            )
                             # Check if new (created in last minute)
                             from app.core.datetime_utils import utc_now
 

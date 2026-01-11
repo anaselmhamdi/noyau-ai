@@ -58,7 +58,7 @@ def get_posthog_client() -> Posthog | None:
         return None
 
     client = Posthog(
-        api_key=api_key,
+        api_key,  # positional arg
         host=host,
         debug=os.getenv("DEBUG", "false").lower() == "true",
     )
@@ -110,9 +110,10 @@ def identify(
         return
 
     try:
-        client.identify(
+        client.capture(
             distinct_id=distinct_id,
-            properties=properties or {},
+            event="$identify",
+            properties={"$set": properties or {}},
         )
     except Exception as e:
         logger.bind(distinct_id=distinct_id, error=str(e)).error("posthog_identify_failed")
@@ -151,10 +152,11 @@ def set_user_properties(distinct_id: str, properties: dict[str, Any]) -> None:
         return
 
     try:
-        # PostHog Python SDK uses identify for setting properties
-        client.identify(
+        # PostHog Python SDK uses capture with $set for setting properties
+        client.capture(
             distinct_id=distinct_id,
-            properties=properties,
+            event="$identify",
+            properties={"$set": properties},
         )
     except Exception as e:
         logger.bind(distinct_id=distinct_id, error=str(e)).error("posthog_set_properties_failed")

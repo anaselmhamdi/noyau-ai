@@ -60,7 +60,8 @@ async def upsert_content_item(
     existing = result.scalar_one_or_none()
 
     if existing:
-        return existing
+        item: ContentItem = existing
+        return item
 
     # Map source string to enum
     source_map = {
@@ -150,7 +151,7 @@ async def run_hourly_ingest(db: AsyncSession) -> dict:
                         stats["existing_items"] += 1
 
                     # Create metrics snapshot
-                    await create_metrics_snapshot(db, item.id, raw_item.metrics)
+                    await create_metrics_snapshot(db, str(item.id), raw_item.metrics)
                     stats["snapshots_created"] += 1
 
                     fetcher_stats["items"] += 1

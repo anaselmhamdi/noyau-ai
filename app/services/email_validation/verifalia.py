@@ -1,6 +1,7 @@
 """Verifalia email validation provider."""
 
 import asyncio
+from typing import Any
 
 import aiohttp
 
@@ -108,7 +109,8 @@ class VerifaliaValidator(BaseEmailValidator):
                 json=payload,
             ) as response:
                 if response.status in (200, 202):
-                    return await response.json()
+                    result: dict[str, Any] = await response.json()
+                    return result
                 elif response.status == 401:
                     logger.error("verifalia_auth_failure")
                     return None
@@ -130,7 +132,7 @@ class VerifaliaValidator(BaseEmailValidator):
                     f"{self.BASE_URL}/email-validations/{job_id}",
                 ) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        data: dict[str, Any] = await response.json()
                         if data.get("overview", {}).get("status") == "Completed":
                             return data
                     elif response.status == 410:

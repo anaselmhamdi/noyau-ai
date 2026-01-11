@@ -114,7 +114,7 @@ class YouTubeFetcher(BaseFetcher):
         published = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
             try:
-                published = datetime(*entry.published_parsed[:6], tzinfo=UTC)
+                published = datetime(*entry.published_parsed[:6], tzinfo=UTC)  # type: ignore[misc]
             except Exception as e:
                 logger.debug("youtube_date_parsing_failed", error=str(e))
         if not published:
@@ -128,7 +128,7 @@ class YouTubeFetcher(BaseFetcher):
                     description = media.media_description
                     break
         if not description and entry.get("summary"):
-            description = clean_html(entry.summary)
+            description = clean_html(entry.summary)  # type: ignore[attr-defined]
 
         # Try to get transcript
         transcript_text = await self._get_transcript(video_id)

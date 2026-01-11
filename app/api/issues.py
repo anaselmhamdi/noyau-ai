@@ -100,7 +100,8 @@ async def get_latest_issue(
         )
 
     # Reuse existing endpoint logic
-    return await get_issue(latest_date, db, user, view)
+    response: IssueResponse = await get_issue(latest_date, db, user, view)
+    return response
 
 
 @router.get("/issues/{issue_date}", response_model=IssueResponse)

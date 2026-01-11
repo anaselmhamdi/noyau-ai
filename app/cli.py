@@ -262,7 +262,7 @@ def video(
             audio_path=audio_path,
             clips=clips,
             output_path=video_path,
-            config=config,
+            config=config,  # type: ignore[arg-type]
             subtitles=subtitles,
             background_music_path=background_music,
         )
@@ -334,7 +334,7 @@ def test_emails():
     results = asyncio.run(send_test_emails())
 
     if "error" in results:
-        _print_error(results["error"])
+        _print_error(str(results["error"]))
         raise typer.Exit(1)
 
     if results.get("magic_link"):

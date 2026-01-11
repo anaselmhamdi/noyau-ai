@@ -91,7 +91,7 @@ class RSSFetcher(BaseFetcher):
         for date_field in ["published_parsed", "updated_parsed", "created_parsed"]:
             if hasattr(entry, date_field) and getattr(entry, date_field):
                 try:
-                    published = datetime(*getattr(entry, date_field)[:6], tzinfo=UTC)
+                    published = datetime(*getattr(entry, date_field)[:6], tzinfo=UTC)  # type: ignore[misc]
                     break
                 except Exception as e:
                     logger.debug("rss_date_parsing_failed", field=date_field, error=str(e))
@@ -103,9 +103,9 @@ class RSSFetcher(BaseFetcher):
         # Get content/summary
         text = ""
         if entry.get("content"):
-            text = entry.content[0].get("value", "")
+            text = entry.content[0].get("value", "")  # type: ignore[attr-defined]
         elif entry.get("summary"):
-            text = entry.summary
+            text = entry.summary  # type: ignore[attr-defined]
 
         text = clean_html(text)
         text = truncate_text(text)
@@ -185,7 +185,7 @@ class GitHubReleasesFetcher(BaseFetcher):
                         # Parse published date
                         published = None
                         if hasattr(entry, "updated_parsed") and entry.updated_parsed:
-                            published = datetime(*entry.updated_parsed[:6], tzinfo=UTC)
+                            published = datetime(*entry.updated_parsed[:6], tzinfo=UTC)  # type: ignore[misc]
                         if not published:
                             published = datetime.now(UTC)
 

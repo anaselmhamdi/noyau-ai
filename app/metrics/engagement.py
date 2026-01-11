@@ -30,15 +30,17 @@ def calculate_engagement(metrics: dict[str, Any], source: str) -> float:
         Weighted engagement score as float
     """
     if source == "x":
-        return metrics.get("likes", 0) + 2 * metrics.get("retweets", 0) + metrics.get("replies", 0)
+        return float(
+            metrics.get("likes", 0) + 2 * metrics.get("retweets", 0) + metrics.get("replies", 0)
+        )
     elif source == "reddit":
-        return metrics.get("upvotes", 0) + 2 * metrics.get("comments", 0)
+        return float(metrics.get("upvotes", 0) + 2 * metrics.get("comments", 0))
     elif source == "youtube":
-        return metrics.get("views", 0) / 1000 + 2 * metrics.get("comments", 0)
+        return float(metrics.get("views", 0)) / 1000 + 2 * float(metrics.get("comments", 0))
     elif source == "github":
-        return metrics.get("stars", 0) + metrics.get("forks", 0)
+        return float(metrics.get("stars", 0) + metrics.get("forks", 0))
     elif source == "devto":
-        return metrics.get("reactions", 0) + 2 * metrics.get("comments", 0)
+        return float(metrics.get("reactions", 0) + 2 * metrics.get("comments", 0))
     return 0.0
 
 

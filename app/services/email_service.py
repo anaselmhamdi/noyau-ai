@@ -154,7 +154,7 @@ async def send_daily_digest(
     logger.bind(email=email, issue_date=issue_date).info("daily_digest_sent")
 
 
-async def send_test_emails() -> dict[str, bool]:
+async def send_test_emails() -> dict[str, bool | str]:
     """
     Send test emails (magic link + daily digest) to the configured DEV_EMAIL.
 
@@ -171,7 +171,7 @@ async def send_test_emails() -> dict[str, bool]:
         logger.warning("resend_api_key_not_set")
         return {"magic_link": False, "daily_digest": False, "error": "RESEND_API_KEY not set"}
 
-    results = {"magic_link": False, "daily_digest": False}
+    results: dict[str, bool | str] = {"magic_link": False, "daily_digest": False}
 
     # Test magic link email
     try:

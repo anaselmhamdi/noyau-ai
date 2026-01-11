@@ -178,7 +178,8 @@ async def _step_generate_script(
         log.warning("script_generation_failed")
         return None
 
-    return script_result.script
+    script: VideoScript = script_result.script
+    return script
 
 
 async def _step_synthesize_audio(
@@ -303,7 +304,7 @@ def _step_compose(
         audio_path=audio_path,
         clips=clips,
         output_path=output_path,
-        config=config,
+        config=config,  # type: ignore[arg-type]
         subtitles=subtitles,
         background_music_path=background_music_path,
     )

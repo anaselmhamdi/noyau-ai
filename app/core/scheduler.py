@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from apscheduler import AsyncScheduler, JobOutcome, JobReleased
+from apscheduler.abc import ConflictPolicy
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.cron import CronTrigger
 
@@ -95,7 +96,7 @@ async def start_scheduler() -> AsyncScheduler | None:
         hourly_job,
         CronTrigger(minute=0),
         id="hourly_ingest",
-        conflict_policy="replace",  # Update if already exists
+        conflict_policy=ConflictPolicy.replace,  # Update if already exists
     )
 
     # Daily job: 6:00 UTC
@@ -103,7 +104,7 @@ async def start_scheduler() -> AsyncScheduler | None:
         daily_job,
         CronTrigger(hour=6, minute=0),
         id="daily_digest",
-        conflict_policy="replace",
+        conflict_policy=ConflictPolicy.replace,
     )
 
     logger.info("scheduler_started", jobs=["hourly_ingest", "daily_digest"])
@@ -115,12 +116,15 @@ async def _on_job_completed(event: Any) -> None:
     """Handle job completion events."""
     if isinstance(event, JobReleased):
         try:
+            scheduled_at = getattr(event, "scheduled_fire_time", None) or datetime.utcnow()
+            started_at = getattr(event, "started_at", None) or datetime.utcnow()
+            exception = getattr(event, "exception", None)
             await _record_job_result(
                 job_id=event.schedule_id or "unknown",
-                scheduled_at=event.scheduled_fire_time,
-                started_at=event.started_at,
+                scheduled_at=scheduled_at,
+                started_at=started_at,
                 outcome=event.outcome,
-                error=str(event.exception) if event.outcome == JobOutcome.error else None,
+                error=str(exception) if event.outcome == JobOutcome.error and exception else None,
             )
         except Exception as e:
             logger.bind(error=str(e)).error("failed_to_record_job_result")

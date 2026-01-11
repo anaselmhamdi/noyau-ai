@@ -32,7 +32,7 @@ class CachedValidator(BaseEmailValidator):
         self._ttl = timedelta(hours=cache_ttl_hours)
 
     @property
-    def provider_name(self) -> str:
+    def provider_name(self) -> str:  # type: ignore[override]
         """Return combined provider name."""
         return f"cached:{self._validator.provider_name}"
 

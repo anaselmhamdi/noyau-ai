@@ -32,7 +32,7 @@ class HistoricalMetrics:
 
         # Binary search for position
         pos = np.searchsorted(dist, value)
-        percentile = (pos / len(dist)) * 100
+        percentile = float(pos / len(dist)) * 100
         return min(percentile, 100.0)
 
 
@@ -127,7 +127,7 @@ class ClusterScorer:
         eng_now = get_snapshot_engagement(latest, item.source.value)
         eng_prev = get_snapshot_engagement(prev, item.source.value)
 
-        return max(0, (eng_now - eng_prev) / dt)
+        return float(max(0, (eng_now - eng_prev) / dt))
 
     def compute_echo(self, canonical_identity: str) -> int:
         """
