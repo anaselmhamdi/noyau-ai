@@ -68,7 +68,8 @@ def setup_logging() -> None:
             diagnose=True,
         )
     else:
-        # JSON format for production (structured logging)
+        # JSON format for production - logs go to stderr (docker logs)
+        # and are collected via docker logging driver or external service
         logger.add(
             sys.stderr,
             level="INFO",
@@ -76,19 +77,8 @@ def setup_logging() -> None:
             backtrace=True,
             diagnose=False,
         )
-
-        # File logging with rotation - use /app/logs inside container
-        log_dir = "/app/logs"
-        os.makedirs(log_dir, exist_ok=True)
-
-        logger.add(
-            f"{log_dir}/app.log",
-            level="INFO",
-            rotation="50 MB",
-            retention=_upload_rotated_log_to_s3,  # Upload to S3 on rotation
-            compression="gz",
-            serialize=True,
-        )
+        # Note: For log archival to S3, use docker logging driver
+        # or run: docker logs api-1 > app.log && upload to S3
 
     # Intercept stdlib logging (uvicorn, sqlalchemy, httpx, etc.)
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)

@@ -7,7 +7,6 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - ./config.yml:/app/config.yml:ro
-      - ./logs:/app/logs
       - static_files:/app/public
     ports:
       - "8000:8000"
