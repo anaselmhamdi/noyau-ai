@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Uuid, func
+from sqlalchemy import Boolean, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -17,6 +17,7 @@ class User(Base, TimestampMixin):
     timezone: Mapped[str] = mapped_column(String(50), default="Europe/Paris")
     delivery_time_local: Mapped[str] = mapped_column(String(5), default="08:00")
     ref_code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    is_subscribed: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", lazy="selectin")

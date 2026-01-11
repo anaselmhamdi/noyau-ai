@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Response, status
+from urllib.parse import quote
+
+from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.config import get_config
@@ -11,6 +14,7 @@ from app.core.security import (
     get_session_expiry,
     hash_token,
     is_expired,
+    verify_unsubscribe_token,
 )
 from app.dependencies import DBSession
 from app.models.user import MagicLink, Session, User
@@ -185,3 +189,63 @@ async def verify_magic_link(
     response.headers["Location"] = redirect or "/"
 
     return response
+
+
+@router.get("/unsubscribe")
+async def unsubscribe(
+    db: DBSession,
+    email: str = Query(...),
+    token: str = Query(...),
+) -> RedirectResponse:
+    """
+    Unsubscribe a user from email digests.
+
+    Validates HMAC token and sets is_subscribed=False.
+    """
+    if not verify_unsubscribe_token(email, token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid unsubscribe link",
+        )
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user:
+        user.is_subscribed = False
+        await db.commit()
+        logger.bind(email=email).info("user_unsubscribed")
+
+    # Redirect to confirmation page with token for resubscribe option
+    return RedirectResponse(
+        url=f"/unsubscribed?email={quote(email)}&token={token}",
+        status_code=status.HTTP_302_FOUND,
+    )
+
+
+@router.post("/resubscribe")
+async def resubscribe(
+    db: DBSession,
+    email: str = Query(...),
+    token: str = Query(...),
+) -> RedirectResponse:
+    """
+    Resubscribe a user to email digests.
+
+    Validates HMAC token and sets is_subscribed=True.
+    """
+    if not verify_unsubscribe_token(email, token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid link",
+        )
+
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user:
+        user.is_subscribed = True
+        await db.commit()
+        logger.bind(email=email).info("user_resubscribed")
+
+    return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)

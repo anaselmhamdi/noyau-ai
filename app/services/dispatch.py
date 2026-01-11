@@ -108,14 +108,14 @@ class EmailDestination:
                 if c.summary
             ]
 
-            result = await db.execute(select(User))
+            result = await db.execute(select(User).where(User.is_subscribed == True))  # noqa: E712
             users = result.scalars().all()
 
             if not users:
                 return DispatchResult(
                     destination=self.name,
                     success=True,
-                    message="No subscribers to send to",
+                    message="No subscribed users to send to",
                 )
 
             for user in users:

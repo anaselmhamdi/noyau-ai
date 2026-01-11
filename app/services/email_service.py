@@ -5,7 +5,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from app.config import get_config, get_settings
 from app.core.logging import get_logger
-from app.core.security import build_magic_link_url
+from app.core.security import build_magic_link_url, generate_unsubscribe_token
 
 logger = get_logger(__name__)
 
@@ -109,6 +109,12 @@ async def send_daily_digest(
     issue_url = f"{settings.base_url}/daily/{issue_date}"
     discord_invite_url = config.discord.invite_url if config.discord.enabled else ""
 
+    # Generate unsubscribe URL with HMAC token
+    unsubscribe_token = generate_unsubscribe_token(email)
+    unsubscribe_url = (
+        f"{settings.base_url}/auth/unsubscribe?email={email}&token={unsubscribe_token}"
+    )
+
     try:
         template = jinja_env.get_template("daily_digest.html")
         html = template.render(
@@ -118,6 +124,7 @@ async def send_daily_digest(
             missed_items=missed_items or [],
             issue_url=issue_url,
             discord_invite_url=discord_invite_url,
+            unsubscribe_url=unsubscribe_url,
         )
     except Exception as e:
         logger.bind(error=str(e)).error("template_error")

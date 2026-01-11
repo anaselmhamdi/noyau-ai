@@ -18,6 +18,9 @@ def _fix_neon_url(url: str) -> tuple[str, dict]:
 
     Neon includes params like sslmode, channel_binding that asyncpg
     doesn't accept. We strip them and handle SSL via connect_args.
+
+    - For Neon (*.neon.tech): Use SSL with default context
+    - For local dev (localhost/127.0.0.1/db): No SSL
     """
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
@@ -31,11 +34,15 @@ def _fix_neon_url(url: str) -> tuple[str, dict]:
     new_query = urlencode(params, doseq=True)
     clean_url = urlunparse(parsed._replace(query=new_query))
 
-    # SSL context for Neon
-    ssl_context = ssl.create_default_context()
-    connect_args = {"ssl": ssl_context}
+    # Only use SSL for Neon (production), not for local dev
+    hostname = parsed.hostname or ""
+    is_local = hostname in ("localhost", "127.0.0.1", "db")
 
-    return clean_url, connect_args
+    if is_local:
+        return clean_url, {}
+    else:
+        ssl_context = ssl.create_default_context()
+        return clean_url, {"ssl": ssl_context}
 
 
 clean_url, connect_args = _fix_neon_url(settings.database_url)

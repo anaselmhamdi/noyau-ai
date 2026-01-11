@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 import uuid
 
@@ -45,3 +46,15 @@ __all__ = ["is_expired"]
 def build_magic_link_url(token: str, redirect_path: str = "/") -> str:
     """Build the full magic link URL."""
     return f"{settings.base_url}/auth/magic?token={token}&redirect={redirect_path}"
+
+
+def generate_unsubscribe_token(email: str) -> str:
+    """Generate HMAC token for unsubscribe link."""
+    secret = settings.secret_key.encode()
+    return hmac.new(secret, email.lower().encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def verify_unsubscribe_token(email: str, token: str) -> bool:
+    """Verify unsubscribe token matches email."""
+    expected = generate_unsubscribe_token(email)
+    return hmac.compare_digest(expected, token)

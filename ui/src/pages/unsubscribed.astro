@@ -1,0 +1,72 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+export const prerender = false;
+
+const url = Astro.url;
+const email = url.searchParams.get('email') || '';
+const token = url.searchParams.get('token') || '';
+---
+
+<BaseLayout
+  title="Unsubscribed"
+  description="You have been unsubscribed from NoyauNews daily digest."
+  noindex={true}
+>
+  <Header slot="header" />
+
+  <section class="py-20 sm:py-28">
+    <div class="container">
+      <div class="max-w-md mx-auto text-center">
+        <div class="flex justify-center mb-6">
+          <div class="w-16 h-16 rounded-full bg-surface flex items-center justify-center">
+            <svg class="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div>
+
+        <h1 class="text-h1 text-text mb-4">
+          You've been unsubscribed
+        </h1>
+
+        <p class="text-body text-muted mb-8">
+          You won't receive any more daily digest emails from NoyauNews.
+          We're sorry to see you go.
+        </p>
+
+        {email && token && (
+          <div class="space-y-4">
+            <p class="text-small text-muted">
+              Changed your mind?
+            </p>
+            <form method="POST" action={`/auth/resubscribe?email=${encodeURIComponent(email)}&token=${token}`}>
+              <button
+                type="submit"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-signal text-bg font-medium rounded-lg hover:bg-signal/90 transition-colors"
+              >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Resubscribe
+              </button>
+            </form>
+          </div>
+        )}
+
+        <div class="mt-12 pt-8 border-t border-divider">
+          <a
+            href="/"
+            class="text-signal hover:underline text-small"
+          >
+            Back to noyau.news
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>
