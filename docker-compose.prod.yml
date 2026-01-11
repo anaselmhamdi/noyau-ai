@@ -84,11 +84,7 @@ services:
     volumes:
       - ./nitter/scripts:/scripts:ro
       - ./nitter/sessions.jsonl:/data/sessions.jsonl
-    command: >
-      sh -c "pip install -q curl_cffi pyotp &&
-             python create_session_curl.py
-             $${TWITTER_USERNAME} $${TWITTER_PASSWORD} $${TWITTER_TOTP_SECRET:-}
-             --append /data/sessions.jsonl"
+    command: ["sh", "-c", "pip install -q --root-user-action=ignore curl_cffi pyotp && python create_session_curl.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --append /data/sessions.jsonl"]
 
   # Auto-update containers when new images are pushed to GHCR
   watchtower:
