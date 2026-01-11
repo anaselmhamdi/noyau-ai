@@ -7,8 +7,7 @@ Runs hourly ingest and daily digest jobs in-process with PostgreSQL persistence.
 from datetime import datetime
 from typing import Any
 
-from apscheduler import AsyncScheduler, JobOutcome, JobReleased
-from apscheduler.abc import ConflictPolicy
+from apscheduler import AsyncScheduler, ConflictPolicy, JobOutcome, JobReleased
 from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.cron import CronTrigger
 
