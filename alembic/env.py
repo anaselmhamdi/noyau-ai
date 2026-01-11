@@ -18,7 +18,9 @@ if config.config_file_name is not None:
 
 # Set the database URL from environment
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Convert sslmode to ssl for asyncpg compatibility with Neon
+db_url = settings.database_url.replace("sslmode=", "ssl=")
+config.set_main_option("sqlalchemy.url", db_url)
 
 # add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
