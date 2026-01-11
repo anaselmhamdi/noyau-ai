@@ -1,7 +1,16 @@
 # syntax=docker/dockerfile:1
+
+# Stage 1: Build UI
+FROM node:22-slim AS ui-builder
+WORKDIR /ui
+COPY ui/package*.json ./
+RUN npm ci
+COPY ui/ ./
+RUN npm run build
+
+# Stage 2: Build API
 FROM python:3.12-slim
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
@@ -35,6 +44,9 @@ RUN uv sync --frozen --no-dev --no-install-project
 # Copy application code and install project
 COPY --chown=appuser:appuser . .
 RUN uv sync --frozen --no-dev
+
+# Copy built UI from ui-builder stage
+COPY --from=ui-builder --chown=appuser:appuser /ui/dist ./public
 
 # Add venv to PATH
 ENV PATH="/app/.venv/bin:$PATH"

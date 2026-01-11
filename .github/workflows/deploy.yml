@@ -71,33 +71,3 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d api
             docker image prune -f
 
-  deploy-ui:
-    needs: ci
-    runs-on: ubuntu-latest
-    environment: production
-    defaults:
-      run:
-        working-directory: ui
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
-
-      - run: npm ci
-
-      - name: Build UI
-        run: npm run build
-
-      - name: Deploy UI to Hetzner
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          source: "ui/dist/*"
-          target: "/opt/noyau/public"
-          strip_components: 2

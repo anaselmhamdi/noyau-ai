@@ -5,8 +5,8 @@ services:
     env_file: .env
     volumes:
       - ./config.yml:/app/config.yml:ro
-      - ./public:/app/public
       - ./logs:/app/logs
+      - static_files:/app/public
     ports:
       - "8000:8000"
     healthcheck:
@@ -25,7 +25,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./public:/srv/public:ro
+      - static_files:/srv/public:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -58,6 +58,7 @@ services:
       - "127.0.0.1:8080:8080"
 
 volumes:
+  static_files:
   caddy_data:
   caddy_config:
   nitter_redis:
