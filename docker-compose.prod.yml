@@ -75,7 +75,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-  # Session refresh helper - run with: docker compose run --rm nitter-auth
+  # Session refresh (HTTP) - run with: docker compose run --rm nitter-auth
   nitter-auth:
     image: python:3.12-slim
     profiles: ["tools"]
@@ -85,6 +85,17 @@ services:
       - ./nitter/scripts:/scripts:ro
       - ./nitter/sessions.jsonl:/data/sessions.jsonl
     command: ["sh", "-c", "pip install -q --root-user-action=ignore curl_cffi pyotp && python create_session_curl.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --append /data/sessions.jsonl"]
+
+  # Session refresh (browser) - run with: docker compose run --rm nitter-auth-browser
+  nitter-auth-browser:
+    image: python:3.12-slim
+    profiles: ["tools"]
+    working_dir: /scripts
+    env_file: .env
+    volumes:
+      - ./nitter/scripts:/scripts:ro
+      - ./nitter/sessions.jsonl:/data/sessions.jsonl
+    command: ["sh", "-c", "apt-get update && apt-get install -y --no-install-recommends chromium chromium-driver && pip install -q --root-user-action=ignore nodriver pyotp && python create_session_browser.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --headless --append /data/sessions.jsonl"]
 
   # Auto-update containers when new images are pushed to GHCR
   watchtower:
