@@ -3,6 +3,8 @@ services:
     image: ghcr.io/anaselmhamdi/noyau-ai-api:latest
     restart: unless-stopped
     env_file: .env
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     volumes:
       - ./config.yml:/app/config.yml:ro
       - ./logs:/app/logs
@@ -56,6 +58,19 @@ services:
       - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
     ports:
       - "127.0.0.1:8080:8080"
+
+  # Auto-update containers when new images are pushed to GHCR
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"  # Check every 5 minutes
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json:ro
+    command: --label-enable
 
 volumes:
   static_files:

@@ -56,21 +56,38 @@ python -m app.jobs.daily --dry-run
 
 ### Docker
 ```bash
-# Full stack
+# Full stack (development)
 docker compose up -d
 
 # Run migrations via compose
 docker compose run --rm migrate
 ```
 
+### Production
+```bash
+# Deploy to production server
+docker compose -f docker-compose.prod.yml up -d
+
+# Force Watchtower to pull latest images immediately
+docker exec noyau-watchtower-1 /watchtower --run-once
+
+# Check Watchtower logs
+docker compose logs watchtower
+
+# View production logs
+docker compose logs -f api
+tail -f /opt/noyau/logs/app.log
+```
+
 ## Architecture
 
 ### Tech Stack
 - **Backend**: FastAPI + Uvicorn (async)
-- **Database**: PostgreSQL 16 + SQLAlchemy 2.0 async + Alembic
-- **Frontend**: Astro 5.0 (in `ui/` directory, separate build)
+- **Database**: PostgreSQL 16 (Neon in production) + SQLAlchemy 2.0 async + Alembic
+- **Frontend**: Astro 5.0 (in `ui/` directory, bundled into API Docker image)
 - **Reverse Proxy**: Caddy 2 (auto TLS)
 - **Infra**: Hetzner VM via Terraform
+- **CI/CD**: GitHub Actions → GHCR → Watchtower (auto-pull)
 - **LLM**: OpenAI API
 - **Email**: Resend API
 

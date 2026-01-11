@@ -53,21 +53,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-api:
-    needs: build-api
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Deploy to Hetzner
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.HETZNER_HOST }}
-          username: ${{ secrets.HETZNER_USER }}
-          key: ${{ secrets.HETZNER_SSH_KEY }}
-          script: |
-            cd /opt/noyau
-            docker compose -f docker-compose.prod.yml pull api
-            # Migrations run automatically on container start
-            docker compose -f docker-compose.prod.yml up -d api
-            docker image prune -f
+  # Note: Watchtower on the server auto-pulls new images every 5 minutes
+  # No SSH-based deploy needed - just push to GHCR and Watchtower handles the rest
 

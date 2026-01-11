@@ -129,8 +129,26 @@ docker compose run --rm api alembic upgrade head
 ### Deploy
 ```bash
 cd /opt/noyau
-docker compose pull
-docker compose up -d
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Watchtower (Auto-Updates)
+
+Watchtower automatically pulls new images from GHCR when CI pushes updates.
+
+- [ ] Watchtower running: `docker compose ps watchtower`
+- [ ] Docker credentials accessible: `/root/.docker/config.json` exists
+- [ ] Only labeled containers updated (uses `--label-enable`)
+
+**Force immediate update:**
+```bash
+docker exec noyau-watchtower-1 /watchtower --run-once
+```
+
+**Check Watchtower logs:**
+```bash
+docker compose logs watchtower
 ```
 
 ### Verify Services

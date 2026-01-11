@@ -44,7 +44,19 @@ Quick overview:
 1. Configure Terraform: `cp terraform/terraform.tfvars.example terraform/terraform.tfvars`
 2. Provision infrastructure: `terraform apply`
 3. Point DNS to server IP
-4. Deploy: `docker compose up -d`
+4. Deploy: `docker compose -f docker-compose.prod.yml up -d`
+
+### Auto-Deployment with Watchtower
+
+CI pushes images to GHCR on every merge to main. Watchtower auto-pulls within 5 minutes.
+
+```bash
+# Force immediate update
+docker exec noyau-watchtower-1 /watchtower --run-once
+
+# Check Watchtower logs
+docker compose logs watchtower
+```
 
 ## Documentation
 
