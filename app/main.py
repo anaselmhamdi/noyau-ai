@@ -57,10 +57,12 @@ async def health_check() -> dict[str, str]:
     return {"status": "healthy"}
 
 
-# Serve static UI files (only if built UI exists)
-if UI_DIR.exists():
-    # Mount static assets (js, css, images)
-    app.mount("/_astro", StaticFiles(directory=UI_DIR / "_astro"), name="astro_assets")
+# Serve static UI files (only if built UI exists with index.html)
+if (UI_DIR / "index.html").exists():
+    # Mount static assets if they exist
+    astro_dir = UI_DIR / "_astro"
+    if astro_dir.exists():
+        app.mount("/_astro", StaticFiles(directory=astro_dir), name="astro_assets")
 
     @app.get("/{path:path}")
     async def serve_spa(request: Request, path: str) -> FileResponse:
