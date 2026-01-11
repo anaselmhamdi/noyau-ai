@@ -1,0 +1,63 @@
+services:
+  api:
+    image: ghcr.io/anaselmhamdi/noyau-ai-api:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./public:/app/public
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - nitter
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public:/srv/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  # Self-hosted Nitter for X/Twitter RSS feeds
+  nitter-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - nitter_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nitter:
+    image: zedeus/nitter:latest
+    restart: unless-stopped
+    depends_on:
+      nitter-redis:
+        condition: service_healthy
+    environment:
+      NITTER_SESSIONS_FILE: /data/sessions.jsonl
+    volumes:
+      - ./nitter/nitter.conf:/src/nitter.conf:ro
+      - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  caddy_data:
+  caddy_config:
+  nitter_redis:
