@@ -22,6 +22,13 @@ const issueExists = res.ok;
 const issue = issueExists ? await res.json() : { items: [], missed_items: [] };
 
 const formattedDate = new Date(date!).toLocaleDateString('en-US', {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric'
+});
+
+const shortDate = new Date(date!).toLocaleDateString('en-US', {
   weekday: 'short',
   month: 'short',
   day: 'numeric'
@@ -30,27 +37,28 @@ const formattedDate = new Date(date!).toLocaleDateString('en-US', {
 const freeItems = issue.items?.filter((item: any) => !item.locked) || [];
 const lockedItems = issue.items?.filter((item: any) => item.locked) || [];
 const missedItems = issue.missed_items || [];
+const totalItems = freeItems.length + lockedItems.length;
 const hasLockedItems = lockedItems.length > 0;
 const hasMissedItems = missedItems.length > 0;
 const isLatest = issue.is_latest || false;
 const hasNoContent = freeItems.length === 0 && lockedItems.length === 0;
 
-// SEO: Dynamic description from top headlines
+// SEO
 const topHeadlines = issue.items?.slice(0, 3).map((item: any) => item.headline) || [];
 const pageDescription = topHeadlines.length > 0
-  ? `${formattedDate}: ${topHeadlines.join(' | ')}`
-  : `Daily engineering digest for ${formattedDate}. 10 things worth knowing.`;
+  ? `${shortDate}: ${topHeadlines.join(' | ')}`
+  : `Daily engineering digest for ${shortDate}. 10 things worth knowing.`;
 
 const canonicalUrl = `https://noyau.news/daily/${date}`;
 const publishedTime = `${date}T08:00:00Z`;
-const pageTitle = `Daily Digest - ${formattedDate}`;
+const pageTitle = `Daily Digest - ${shortDate}`;
 
 // JSON-LD schemas
 const articleSchema = generateNewsArticleSchema(date!, pageTitle, pageDescription);
 const itemListSchema = generateItemListSchema(date!, issue.items || []);
 const breadcrumbSchema = generateBreadcrumbSchema([
   { name: 'Home', url: 'https://noyau.news' },
-  { name: formattedDate, url: canonicalUrl },
+  { name: shortDate, url: canonicalUrl },
 ]);
 ---
 
@@ -69,51 +77,97 @@ const breadcrumbSchema = generateBreadcrumbSchema([
 
   <Header slot="header" />
 
-  <article class="py-8 sm:py-12" data-issue-date={date} data-is-latest={isLatest} data-has-locked={hasLockedItems}>
+  <article class="py-6 sm:py-10" data-issue-date={date} data-is-latest={isLatest} data-has-locked={hasLockedItems}>
     <div class="container">
-      {/* Header */}
-      <header class="mb-8 sm:mb-10">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="flex items-center gap-1">
-              <span class="text-muted font-mono">[</span>
-              <span class="w-2 h-2 bg-signal rounded-full"></span>
-              <span class="text-muted font-mono">]</span>
+      {/* Hero header */}
+      <header class="mb-10 sm:mb-12">
+        {/* Breadcrumb */}
+        <nav class="flex items-center gap-2 text-xs font-mono text-muted mb-4">
+          <a href="/" class="hover:text-signal transition-colors">noyau</a>
+          <span>/</span>
+          <a href="/archives" class="hover:text-signal transition-colors">archives</a>
+          <span>/</span>
+          <span class="text-text">{date}</span>
+        </nav>
+
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            {/* Date display */}
+            <div class="flex items-center gap-3 mb-2">
+              <div class="flex items-center gap-1">
+                <span class="text-muted font-mono text-lg">[</span>
+                <span class="w-2.5 h-2.5 bg-signal rounded-full animate-pulse-subtle"></span>
+                <span class="text-muted font-mono text-lg">]</span>
+              </div>
+              {isLatest && (
+                <span class="px-2 py-0.5 rounded-full bg-signal/10 text-signal text-xs font-medium border border-signal/20">
+                  Today's Digest
+                </span>
+              )}
             </div>
-            <time datetime={date} class="font-mono text-h2 text-text">
+
+            <h1 class="text-2xl sm:text-3xl font-bold text-text tracking-tight">
               {formattedDate}
-            </time>
-            {isLatest && (
-              <span class="tag-chip bg-signal-muted text-signal">Latest</span>
+            </h1>
+
+            {totalItems > 0 && (
+              <p class="mt-2 text-body text-muted">
+                {totalItems} stories ranked by signal
+              </p>
             )}
           </div>
+
           <ShareSnippet date={date!} items={issue.items || []} />
         </div>
-        <h1 class="sr-only">noyau Daily Tech Digest - {formattedDate}</h1>
+
+        {/* Progress bar */}
+        {totalItems > 0 && (
+          <div class="mt-6 flex items-center gap-3">
+            <div class="flex-1 h-1 bg-border/50 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-gradient-to-r from-signal to-signal/50 rounded-full transition-all duration-500"
+                style={`width: ${(freeItems.length / totalItems) * 100}%`}
+                id="reading-progress"
+              ></div>
+            </div>
+            <span class="text-xs font-mono text-muted">
+              <span id="items-read">{freeItems.length}</span>/{totalItems}
+            </span>
+          </div>
+        )}
       </header>
 
       {/* Issue items */}
-      <div class="space-y-4" id="issue-items">
+      <div class="space-y-5" id="issue-items">
         {hasNoContent && (
-          <div class="card text-center py-12">
-            <div class="flex items-center justify-center gap-2 mb-4">
-              <span class="w-2 h-2 rounded-full bg-warning animate-pulse"></span>
-              <span class="text-micro font-mono text-muted">{issueExists ? 'Empty digest' : 'Not found'}</span>
+          <div class="card text-center py-16">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-hover flex items-center justify-center">
+              <svg class="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
             </div>
-            <p class="text-body text-muted mb-6">
+            <h2 class="text-lg font-semibold text-text mb-2">
+              {issueExists ? 'No items yet' : 'Digest not found'}
+            </h2>
+            <p class="text-body text-muted mb-6 max-w-sm mx-auto">
               {issueExists
-                ? "This digest doesn't have any items. It may still be processing or there wasn't enough content for this day."
+                ? "This digest is still being prepared. Check back soon for today's top stories."
                 : "No digest was published for this date."}
             </p>
-            <a href="/archives" class="text-signal hover:text-signal/80 transition-colors text-micro font-mono">
-              View other digests →
+            <a href="/archives" class="btn btn-ghost">
+              <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Browse archives
             </a>
           </div>
         )}
+
+        {/* Free items */}
         {freeItems.map((item: any, index: number) => (
           <div
             class="opacity-0 animate-fade-in-up"
-            style={`animation-delay: ${index * 75}ms`}
+            style={`animation-delay: ${index * 100}ms`}
           >
             <IssueCard
               rank={item.rank}
@@ -130,53 +184,78 @@ const breadcrumbSchema = generateBreadcrumbSchema([
 
         {/* Soft gate */}
         {hasLockedItems && (
-          <div class="py-8" id="soft-gate-trigger">
-            <div class="card bg-slate/50 border-dashed text-center py-8">
-              <div class="flex items-center justify-center gap-2 mb-3">
-                <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-subtle"></span>
-                <span class="section-header">Items 6-10</span>
+          <div class="py-6" id="soft-gate-trigger">
+            <div class="relative overflow-hidden rounded-card border border-dashed border-signal/30 bg-gradient-to-b from-signal/5 to-transparent">
+              {/* Background pattern */}
+              <div class="absolute inset-0 opacity-30">
+                <div class="absolute inset-0" style="background-image: radial-gradient(circle at 2px 2px, rgba(34,211,238,0.15) 1px, transparent 0); background-size: 24px 24px;"></div>
               </div>
-              <p class="text-body text-muted mb-6">
-                Get the complete daily brief delivered to your inbox.
-              </p>
-              <a href="#subscribe" class="btn btn-primary">
-                Unlock with magic link
-              </a>
+
+              <div class="relative px-6 py-10 text-center">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-signal/10 text-signal text-xs font-mono mb-4">
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>Items {freeItems.length + 1}-{totalItems}</span>
+                </div>
+
+                <h3 class="text-xl font-semibold text-text mb-2">
+                  {lockedItems.length} more stories waiting
+                </h3>
+                <p class="text-body text-muted mb-6 max-w-sm mx-auto">
+                  Get the complete daily brief delivered to your inbox. Free forever.
+                </p>
+
+                <a href="#subscribe" class="btn btn-primary inline-flex items-center gap-2">
+                  <span>Unlock with magic link</span>
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Locked items */}
+        {/* Locked items preview */}
         {lockedItems.map((item: any, index: number) => (
           <div
             class="opacity-0 animate-fade-in"
-            style={`animation-delay: ${(freeItems.length + index) * 75}ms`}
+            style={`animation-delay: ${(freeItems.length + index) * 100}ms`}
           >
             <LockedCard rank={item.rank} headline={item.headline} teaser={item.teaser} />
           </div>
         ))}
 
-        {/* You may have missed section */}
+        {/* You may have missed */}
         {hasMissedItems && (
-          <section class="mt-12 pt-8 border-t border-border/50">
-            <div class="flex items-center gap-2 mb-6">
-              <svg class="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span class="section-header">You may have missed</span>
+          <section class="mt-12 pt-10 border-t border-border/30">
+            <div class="flex items-center gap-3 mb-6">
+              <div class="w-8 h-8 rounded-full bg-slate-hover flex items-center justify-center">
+                <svg class="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-text">You may have missed</h3>
+                <p class="text-xs text-muted">From recent digests</p>
+              </div>
             </div>
-            <div class="space-y-3">
+
+            <div class="grid gap-3">
               {missedItems.map((item: any) => (
-                <div class="card bg-slate/30 border-border/30 hover:bg-slate/50 transition-colors">
+                <div class="group p-4 rounded-xl bg-slate/30 border border-border/20 hover:bg-slate/50 hover:border-border/40 transition-all">
                   <div class="flex items-start gap-3">
-                    <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-dashed border-border text-muted font-mono text-micro">
-                      ↻
+                    <span class="flex-shrink-0 w-6 h-6 rounded-full bg-slate-hover flex items-center justify-center text-muted group-hover:text-signal transition-colors">
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
                     </span>
                     <div>
-                      <h3 class="text-body font-medium text-text leading-snug mb-1">
+                      <h4 class="text-sm font-medium text-text group-hover:text-signal transition-colors leading-snug">
                         {item.headline}
-                      </h3>
-                      <p class="text-body text-muted">
+                      </h4>
+                      <p class="mt-1 text-xs text-muted line-clamp-2">
                         {item.teaser}
                       </p>
                     </div>
@@ -188,13 +267,20 @@ const breadcrumbSchema = generateBreadcrumbSchema([
         )}
       </div>
 
-      {/* Footer subscribe form */}
-      <footer class="mt-12 pt-8 border-t border-border/50" id="subscribe">
-        <div class="text-center mb-6">
-          <h2 class="text-h2 text-text mb-2">Stay in the loop</h2>
-          <p class="text-body text-muted">Get tomorrow's brief delivered to your inbox.</p>
+      {/* Footer CTA */}
+      <footer class="mt-16 pt-10 border-t border-border/30" id="subscribe">
+        <div class="max-w-lg mx-auto text-center">
+          <div class="inline-flex items-center gap-1 mb-4">
+            <span class="text-muted font-mono">[</span>
+            <span class="w-2 h-2 bg-signal rounded-full"></span>
+            <span class="text-muted font-mono">]</span>
+          </div>
+          <h2 class="text-xl font-semibold text-text mb-2">Stay in the loop</h2>
+          <p class="text-body text-muted mb-8">
+            Get tomorrow's brief delivered to your inbox. No spam, just signal.
+          </p>
+          <SubscribeForm variant="hero" issueDate={date} />
         </div>
-        <SubscribeForm variant="hero" issueDate={date} />
       </footer>
     </div>
   </article>

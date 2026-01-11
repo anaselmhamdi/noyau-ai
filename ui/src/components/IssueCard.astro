@@ -17,86 +17,143 @@ interface Props {
 
 const { rank, headline, teaser, takeaway, bullets, citations, confidence, topic } = Astro.props;
 
-const confidenceLabel = {
-  low: 'Emerging',
-  medium: 'Developing',
-  high: 'High signal',
+const confidenceConfig = {
+  low: { label: 'Emerging', icon: '◐' },
+  medium: { label: 'Developing', icon: '◑' },
+  high: { label: 'High signal', icon: '●' },
 }[confidence];
 
 const isHighConfidence = confidence === 'high';
+const isTopThree = rank <= 3;
 
-// Extract primary source from first citation
-const primarySource = citations[0]?.label?.split(' ')[0] || '';
+// Rank styling for podium effect
+const rankStyles = {
+  1: 'bg-gradient-to-br from-amber-400 to-amber-600 text-ink shadow-lg shadow-amber-500/20',
+  2: 'bg-gradient-to-br from-slate-300 to-slate-400 text-ink shadow-lg shadow-slate-400/20',
+  3: 'bg-gradient-to-br from-amber-600 to-amber-700 text-ink shadow-lg shadow-amber-600/20',
+} as Record<number, string>;
+
+const defaultRankStyle = 'bg-signal-muted text-signal';
+const rankClass = rankStyles[rank] || defaultRankStyle;
+
+// Extract domain from first citation URL for favicon
+const primaryCitation = citations[0];
+const primaryDomain = primaryCitation?.url ? new URL(primaryCitation.url).hostname.replace('www.', '') : '';
 ---
 
-<article class="card-interactive group" data-rank={rank}>
-  {/* Metadata row */}
-  {(topic || primarySource) && (
-    <div class="flex items-center gap-2 mb-3">
-      {topic && <span class="tag-chip">{topic}</span>}
-      {topic && primarySource && <span class="text-border">·</span>}
-      {primarySource && <span class="font-mono text-micro text-muted">{primarySource}</span>}
-    </div>
+<article
+  class={`group relative ${isTopThree ? 'card-featured' : 'card-interactive'}`}
+  data-rank={rank}
+>
+  {/* Left accent bar for top items */}
+  {isTopThree && (
+    <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-signal via-signal/50 to-transparent rounded-l-card"></div>
   )}
 
-  {/* Main content */}
-  <div class="flex items-start gap-4">
-    <span class="rank-badge shrink-0 group-hover:scale-105 transition-transform">
-      {rank}
-    </span>
-    <div class="flex-1 min-w-0">
-      <h2 class="text-h2 text-text group-hover:text-signal transition-colors leading-snug">
-        {headline}
-      </h2>
-      <p class="mt-2 text-body text-muted">{teaser}</p>
-    </div>
-  </div>
-
-  {/* Takeaway */}
-  <div class="mt-4 pl-13">
-    <p class="text-body text-text/90">{takeaway}</p>
-  </div>
-
-  {/* Bullets */}
-  {bullets.length > 0 && (
-    <ul class="mt-3 pl-13 space-y-1.5">
-      {bullets.map((bullet) => (
-        <li class="flex gap-2 text-body text-muted">
-          <span class="text-signal mt-0.5">—</span>
-          <span>{bullet}</span>
-        </li>
-      ))}
-    </ul>
-  )}
-
-  {/* Footer row */}
-  <div class="mt-4 pl-13 flex items-center justify-between gap-4">
-    {/* Score pill */}
-    <span class={`score-pill ${isHighConfidence ? 'score-pill-high' : ''}`}>
-      <span class="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
-      {confidenceLabel}
-    </span>
-
-    {/* Citations */}
-    {citations.length > 0 && (
-      <div class="flex flex-wrap gap-x-3 gap-y-1">
-        {citations.map((c) => (
-          <a
-            href={c.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="link-subtle text-micro font-mono hover:text-signal"
-          >
-            {c.label}
-          </a>
-        ))}
+  <div class={isTopThree ? 'pl-4' : ''}>
+    {/* Header: Rank + Headline */}
+    <div class="flex items-start gap-4">
+      {/* Rank badge */}
+      <div class={`rank-badge-lg ${rankClass} shrink-0 group-hover:scale-105 transition-transform`}>
+        {rank}
       </div>
-    )}
+
+      <div class="flex-1 min-w-0">
+        {/* Topic + Source */}
+        <div class="flex items-center gap-2 mb-2">
+          {topic && (
+            <span class="tag-chip text-xs">{topic}</span>
+          )}
+          {primaryDomain && (
+            <>
+              {topic && <span class="text-border text-xs">·</span>}
+              <span class="font-mono text-xs text-muted/70">{primaryDomain}</span>
+            </>
+          )}
+        </div>
+
+        {/* Headline */}
+        <h2 class={`font-semibold leading-tight tracking-tight group-hover:text-signal transition-colors ${isTopThree ? 'text-lg sm:text-xl' : 'text-base sm:text-lg'} text-text`}>
+          {headline}
+        </h2>
+
+        {/* Teaser */}
+        <p class="mt-2 text-body text-muted/80 leading-relaxed">
+          {teaser}
+        </p>
+      </div>
+    </div>
+
+    {/* Content body */}
+    <div class="mt-4 ml-14 sm:ml-16 space-y-4">
+      {/* Takeaway - the key insight */}
+      <div class="relative pl-4 border-l-2 border-signal/30">
+        <p class="text-body text-text/90 leading-relaxed italic">
+          {takeaway}
+        </p>
+      </div>
+
+      {/* Bullets */}
+      {bullets.length > 0 && (
+        <ul class="space-y-2">
+          {bullets.map((bullet) => (
+            <li class="flex items-start gap-3 text-body text-muted/90">
+              <span class="text-signal text-sm mt-1 shrink-0">→</span>
+              <span class="leading-relaxed">{bullet}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Footer: Confidence + Citations */}
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+        {/* Confidence indicator */}
+        <div class={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+          isHighConfidence
+            ? 'bg-signal/10 text-signal border border-signal/20'
+            : 'bg-slate-hover/50 text-muted border border-border/50'
+        }`}>
+          <span class="text-xs">{confidenceConfig.icon}</span>
+          <span>{confidenceConfig.label}</span>
+        </div>
+
+        {/* Citations */}
+        {citations.length > 0 && (
+          <div class="flex flex-wrap items-center gap-2">
+            {citations.slice(0, 3).map((c, i) => (
+              <a
+                href={c.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-mono text-muted/70 hover:text-signal hover:bg-signal-muted/50 transition-all"
+                title={c.url}
+              >
+                <span class="truncate max-w-[120px]">{c.label}</span>
+                <svg class="w-3 h-3 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            ))}
+            {citations.length > 3 && (
+              <span class="text-xs text-muted/50 font-mono">+{citations.length - 3}</span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   </div>
 </article>
 
 <style>
-  .pl-13 {
-    padding-left: 3.25rem; /* 52px = 36px badge + 16px gap */
+  .card-featured {
+    @apply p-5 sm:p-6 bg-slate border border-border rounded-card;
+    @apply transition-all duration-smooth ease-smooth;
+    @apply hover:border-signal/30 hover:shadow-lg hover:shadow-signal/5;
+  }
+
+  .rank-badge-lg {
+    @apply inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12;
+    @apply font-mono text-lg sm:text-xl font-bold rounded-xl;
+    @apply transition-all duration-hover;
   }
 </style>

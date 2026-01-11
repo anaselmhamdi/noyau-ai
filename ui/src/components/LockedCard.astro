@@ -8,53 +8,57 @@ interface Props {
 const { rank, headline, teaser } = Astro.props;
 ---
 
-<article class="card relative overflow-hidden group" data-rank={rank}>
-  {/* Content with fade effect */}
+<article class="group relative p-5 sm:p-6 bg-slate/50 border border-border/50 rounded-card overflow-hidden" data-rank={rank}>
+  {/* Blur overlay */}
+  <div class="absolute inset-0 backdrop-blur-[2px] bg-gradient-to-b from-transparent via-slate/30 to-slate/60 pointer-events-none z-10"></div>
+
   <div class="relative">
+    {/* Header */}
     <div class="flex items-start gap-4">
-      <span class="rank-badge rank-badge-locked shrink-0">
+      {/* Rank badge */}
+      <div class="rank-badge-lg bg-bad/10 text-bad/60 shrink-0">
         {rank}
-      </span>
+      </div>
+
       <div class="flex-1 min-w-0">
-        <h2 class="text-h2 text-text/70 leading-snug">
+        {/* Headline - slightly faded */}
+        <h2 class="text-base sm:text-lg font-semibold text-text/60 leading-tight tracking-tight">
           {headline}
         </h2>
-        <p class="mt-2 text-body text-muted/60 line-clamp-2">
+
+        {/* Teaser */}
+        <p class="mt-2 text-body text-muted/50 line-clamp-2">
           {teaser}
         </p>
       </div>
     </div>
 
-    {/* Placeholder content (blurred) */}
-    <div class="mt-4 pl-13 space-y-2 select-none" aria-hidden="true">
-      <div class="h-4 bg-border/30 rounded w-full"></div>
-      <div class="h-4 bg-border/30 rounded w-4/5"></div>
-      <div class="h-4 bg-border/30 rounded w-3/5"></div>
+    {/* Placeholder content */}
+    <div class="mt-4 ml-14 sm:ml-16 space-y-3" aria-hidden="true">
+      <div class="h-3 bg-border/20 rounded w-full"></div>
+      <div class="h-3 bg-border/20 rounded w-5/6"></div>
+      <div class="h-3 bg-border/20 rounded w-4/6"></div>
     </div>
-
-    {/* Gradient overlay */}
-    <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate via-slate/80 to-transparent pointer-events-none"></div>
   </div>
 
-  {/* Unlock CTA */}
-  <div class="relative mt-4 pt-4 border-t border-border/30 text-center">
+  {/* Hover unlock hint */}
+  <div class="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate/80 backdrop-blur-sm">
     <a
       href="#subscribe"
-      class="inline-flex items-center gap-2 text-body text-signal hover:text-signal/80 transition-colors group/link"
+      class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-signal text-ink text-sm font-medium hover:bg-signal/90 transition-colors"
     >
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
       </svg>
-      <span>Get the full brief via magic link</span>
-      <svg class="w-4 h-4 group-hover/link:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-      </svg>
+      <span>Unlock</span>
     </a>
   </div>
 </article>
 
 <style>
-  .pl-13 {
-    padding-left: 3.25rem;
+  .rank-badge-lg {
+    @apply inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12;
+    @apply font-mono text-lg sm:text-xl font-bold rounded-xl;
+    @apply transition-all duration-hover;
   }
 </style>
