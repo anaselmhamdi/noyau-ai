@@ -9,8 +9,14 @@ logger = get_logger(__name__)
 
 settings = get_settings()
 
+
+def _fix_neon_url(url: str) -> str:
+    """Convert sslmode to ssl for asyncpg compatibility with Neon."""
+    return url.replace("sslmode=", "ssl=")
+
+
 engine = create_async_engine(
-    settings.database_url,
+    _fix_neon_url(settings.database_url),
     echo=settings.debug,
     pool_pre_ping=True,
     pool_size=5,
