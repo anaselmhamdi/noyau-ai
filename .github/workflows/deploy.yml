@@ -67,8 +67,7 @@ jobs:
           script: |
             cd /opt/noyau
             docker compose -f docker-compose.prod.yml pull api
-            # Run migrations before starting new container
-            docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head
+            # Migrations run automatically on container start
             docker compose -f docker-compose.prod.yml up -d api
             docker image prune -f
 
