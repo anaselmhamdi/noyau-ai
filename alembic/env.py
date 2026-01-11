@@ -1,9 +1,11 @@
 import asyncio
+import ssl
 from logging.config import fileConfig
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 from app.config import get_settings
@@ -18,8 +20,25 @@ if config.config_file_name is not None:
 
 # Set the database URL from environment
 settings = get_settings()
-# Convert sslmode to ssl for asyncpg compatibility with Neon
-db_url = settings.database_url.replace("sslmode=", "ssl=")
+
+
+def _fix_neon_url(url: str) -> tuple[str, dict]:
+    """Fix Neon connection URL for asyncpg compatibility."""
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+
+    # Remove unsupported asyncpg params
+    for param in ["sslmode", "channel_binding", "options"]:
+        params.pop(param, None)
+
+    new_query = urlencode(params, doseq=True)
+    clean_url = urlunparse(parsed._replace(query=new_query))
+
+    ssl_context = ssl.create_default_context()
+    return clean_url, {"ssl": ssl_context}
+
+
+db_url, connect_args = _fix_neon_url(settings.database_url)
 config.set_main_option("sqlalchemy.url", db_url)
 
 # add your model's MetaData object here for 'autogenerate' support
@@ -49,10 +68,10 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations in 'online' mode with async engine."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_async_engine(
+        db_url,
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
 
     async with connectable.connect() as connection:
