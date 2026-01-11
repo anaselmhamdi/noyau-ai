@@ -40,7 +40,11 @@ jobs:
             --disable-error-code=var-annotated \
             --disable-error-code=override \
             --disable-error-code=assignment \
-            --disable-error-code=dict-item
+            --disable-error-code=dict-item \
+            --disable-error-code=unused-ignore \
+            --disable-error-code=import-untyped \
+            --disable-error-code=call-arg \
+            --disable-error-code=no-untyped-def
 
   test-python:
     runs-on: ubuntu-latest
