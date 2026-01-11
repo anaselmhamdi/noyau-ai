@@ -220,6 +220,26 @@ export function trackReferralLanding(refCode: string, issueDate?: string) {
   });
 }
 
+export function trackMagicLinkClicked() {
+  // Estimate token age from URL or default to 0
+  // The actual age would need to come from the backend
+  track('magic_link_clicked', {
+    token_age_seconds: 0,
+    email_client: detectEmailClient(),
+  });
+}
+
+// Detect email client from referrer or user agent hints
+function detectEmailClient(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const referrer = document.referrer.toLowerCase();
+  if (referrer.includes('mail.google')) return 'gmail';
+  if (referrer.includes('outlook')) return 'outlook';
+  if (referrer.includes('yahoo')) return 'yahoo';
+  if (referrer.includes('proton')) return 'protonmail';
+  return undefined;
+}
+
 // User identification
 export function identifyUser(userId: string, properties?: Record<string, any>) {
   if (typeof window === 'undefined') return;

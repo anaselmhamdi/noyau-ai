@@ -107,7 +107,7 @@ const formLocation = isHero ? 'hero' : 'footer';
         const response = await fetch('/auth/request-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, redirect: '/' }),
+          body: JSON.stringify({ email, redirect: '/welcome' }),
         });
 
         if (response.ok) {
