@@ -1,0 +1,462 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose-plugin
+  - git
+  - curl
+  - unzip
+  # For Nitter token refresh (browser automation)
+  - xvfb
+  - chromium-browser
+  - python3-pip
+  - python3-venv
+
+# Create application directory
+runcmd:
+  # Enable Docker
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Create app directory
+  - mkdir -p /opt/noyau
+  - mkdir -p /opt/noyau/public
+
+  # Add deploy user to docker group (optional)
+  - usermod -aG docker root
+
+write_files:
+  # Production environment file
+  - path: /opt/noyau/.env
+    permissions: '0600'
+    content: |
+      # =============================================================================
+      # Database (Neon)
+      # =============================================================================
+      DATABASE_URL=${neon_database_url}
+
+      # =============================================================================
+      # API Keys
+      # =============================================================================
+      OPENAI_API_KEY=${openai_api_key}
+      RESEND_API_KEY=${resend_api_key}
+
+      # =============================================================================
+      # LLM Configuration
+      # =============================================================================
+      LLM_MODEL=${llm_model}
+
+      # =============================================================================
+      # Security
+      # =============================================================================
+      SECRET_KEY=${secret_key}
+
+      # =============================================================================
+      # Application
+      # =============================================================================
+      BASE_URL=https://${domain}
+      EMAIL_DOMAIN=${domain}
+      DEBUG=false
+      LOG_DIR=/opt/noyau/logs
+
+      # =============================================================================
+      # Scheduler
+      # =============================================================================
+      SCHEDULER_ENABLED=${scheduler_enabled}
+
+      # =============================================================================
+      # Analytics (PostHog)
+      # =============================================================================
+      POSTHOG_API_KEY=${posthog_api_key}
+      POSTHOG_HOST=${posthog_host}
+      PUBLIC_POSTHOG_KEY=${posthog_api_key}
+
+      # =============================================================================
+      # Email Validation (Verifalia)
+      # =============================================================================
+      VERIFALIA_USERNAME=${verifalia_username}
+      VERIFALIA_PASSWORD=${verifalia_password}
+      VERIFALIA_QUALITY=${verifalia_quality}
+      VERIFALIA_TIMEOUT=${verifalia_timeout}
+      VERIFALIA_CACHE_TTL_HOURS=${verifalia_cache_ttl_hours}
+
+      # =============================================================================
+      # Discord
+      # =============================================================================
+      DISCORD_WEBHOOK_URL=${discord_webhook_url}
+
+      # =============================================================================
+      # Twitter/Nitter
+      # =============================================================================
+      TWITTER_USERNAME=${twitter_username}
+      TWITTER_PASSWORD=${twitter_password}
+      TWITTER_TOTP_SECRET=${twitter_totp_secret}
+
+      # =============================================================================
+      # Twitter API v2 (posting)
+      # =============================================================================
+      TWITTER_API_KEY=${twitter_api_key}
+      TWITTER_API_SECRET=${twitter_api_secret}
+      TWITTER_ACCESS_TOKEN=${twitter_access_token}
+      TWITTER_ACCESS_TOKEN_SECRET=${twitter_access_token_secret}
+
+      # =============================================================================
+      # Video Generation
+      # =============================================================================
+      VIDEO_ENABLED=${video_enabled}
+      VIDEO_OUTPUT_DIR=${video_output_dir}
+      PEXELS_API_KEY=${pexels_api_key}
+      FREESOUND_CLIENT_ID=${freesound_client_id}
+      FREESOUND_CLIENT_SECRET=${freesound_client_secret}
+      TTS_PROVIDER=${tts_provider}
+      ELEVENLABS_API_KEY=${elevenlabs_api_key}
+      YOUTUBE_CLIENT_ID=${youtube_client_id}
+      YOUTUBE_CLIENT_SECRET=${youtube_client_secret}
+      YOUTUBE_REFRESH_TOKEN=${youtube_refresh_token}
+
+      # =============================================================================
+      # S3 Storage
+      # =============================================================================
+      S3_BUCKET_NAME=${s3_bucket_name}
+      S3_REGION=${s3_region}
+      S3_ACCESS_KEY_ID=${s3_access_key_id}
+      S3_SECRET_ACCESS_KEY=${s3_secret_access_key}
+      S3_ENDPOINT_URL=${s3_endpoint_url}
+
+  # Docker compose for production (uses Neon, no local db)
+  - path: /opt/noyau/docker-compose.yml
+    content: |
+      services:
+        api:
+          image: ghcr.io/${github_repo}-api:latest
+          restart: unless-stopped
+          env_file: .env
+          volumes:
+            - ./config.yml:/app/config.yml:ro
+            - ./public:/app/public
+          ports:
+            - "8000:8000"
+          healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+          depends_on:
+            - nitter
+
+        caddy:
+          image: caddy:2-alpine
+          restart: unless-stopped
+          ports:
+            - "80:80"
+            - "443:443"
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./public:/srv/public:ro
+            - caddy_data:/data
+            - caddy_config:/config
+          depends_on:
+            - api
+
+        # Nitter for X/Twitter RSS feeds
+        nitter-redis:
+          image: redis:7-alpine
+          restart: unless-stopped
+          volumes:
+            - nitter_redis:/data
+          healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+        nitter:
+          image: zedeus/nitter:latest
+          restart: unless-stopped
+          depends_on:
+            nitter-redis:
+              condition: service_healthy
+          environment:
+            NITTER_SESSIONS_FILE: /data/sessions.jsonl
+          volumes:
+            - ./nitter/nitter.conf:/src/nitter.conf:ro
+            - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
+          ports:
+            - "127.0.0.1:8080:8080"
+
+      volumes:
+        caddy_data:
+        caddy_config:
+        nitter_redis:
+
+  # NOTE: Hourly and daily job scheduling is now handled in-app via APScheduler.
+  # The systemd timers below are kept commented out as a fallback option.
+  # To use systemd timers instead, set SCHEDULER_ENABLED=false in .env and uncomment these.
+
+  # # Hourly timer (ingest) - DISABLED: Now handled by APScheduler
+  # - path: /etc/systemd/system/noyau-hourly.timer
+  #   content: |
+  #     [Unit]
+  #     Description=NoyauAI hourly ingest timer
+  #
+  #     [Timer]
+  #     OnCalendar=hourly
+  #     Persistent=true
+  #     RandomizedDelaySec=300
+  #
+  #     [Install]
+  #     WantedBy=timers.target
+
+  # # Hourly service - DISABLED: Now handled by APScheduler
+  # - path: /etc/systemd/system/noyau-hourly.service
+  #   content: |
+  #     [Unit]
+  #     Description=NoyauAI hourly ingest job
+  #     After=docker.service
+  #     Requires=docker.service
+  #
+  #     [Service]
+  #     Type=oneshot
+  #     WorkingDirectory=/opt/noyau
+  #     ExecStart=/usr/bin/docker compose exec -T api python -m app.jobs.hourly
+  #     TimeoutStartSec=600
+  #
+  #     [Install]
+  #     WantedBy=multi-user.target
+
+  # # Daily timer (issue build) - DISABLED: Now handled by APScheduler
+  # - path: /etc/systemd/system/noyau-daily.timer
+  #   content: |
+  #     [Unit]
+  #     Description=NoyauAI daily issue build timer
+  #
+  #     [Timer]
+  #     OnCalendar=*-*-* 06:00:00
+  #     Persistent=true
+  #     RandomizedDelaySec=300
+  #
+  #     [Install]
+  #     WantedBy=timers.target
+
+  # # Daily service - DISABLED: Now handled by APScheduler
+  # - path: /etc/systemd/system/noyau-daily.service
+  #   content: |
+  #     [Unit]
+  #     Description=NoyauAI daily issue build job
+  #     After=docker.service
+  #     Requires=docker.service
+  #
+  #     [Service]
+  #     Type=oneshot
+  #     WorkingDirectory=/opt/noyau
+  #     ExecStart=/usr/bin/docker compose exec -T api python -m app.jobs.daily
+  #     TimeoutStartSec=1800
+  #
+  #     [Install]
+  #     WantedBy=multi-user.target
+
+  # Nitter configuration
+  - path: /opt/noyau/nitter/nitter.conf
+    content: |
+      [Server]
+      hostname = "localhost"
+      title = "Noyau Nitter"
+      address = "0.0.0.0"
+      port = 8080
+      https = false
+      httpMaxConnections = 100
+      staticDir = "./public"
+
+      [Cache]
+      redisHost = "nitter-redis"
+      redisPort = 6379
+      redisConnections = 20
+      redisMaxConnections = 30
+      listMinutes = 240
+      rssMinutes = 10
+
+      [Config]
+      hmacKey = "noyau-nitter-hmac-key"
+      base64Media = false
+      enableRSS = true
+      enableDebug = false
+      proxy = ""
+      proxyAuth = ""
+
+      [Preferences]
+      theme = "Nitter"
+      replaceTwitter = ""
+      replaceYouTube = ""
+      replaceReddit = ""
+      proxyVideos = false
+      hlsPlayback = false
+      infiniteScroll = false
+
+  # Empty sessions file (will be populated by refresh script)
+  - path: /opt/noyau/nitter/sessions.jsonl
+    permissions: '0600'
+    content: ""
+
+  # Nitter token refresh script
+  - path: /opt/noyau/scripts/refresh_nitter_tokens.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Refresh Nitter/Twitter session tokens via xvfb browser automation
+      set -e
+
+      SCRIPT_DIR="$(cd "$(dirname "$${BASH_SOURCE[0]}")" && pwd)"
+      PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+      NITTER_DIR="$PROJECT_DIR/nitter"
+      VENV_DIR="$PROJECT_DIR/nitter-venv"
+      LOG_FILE="$PROJECT_DIR/logs/nitter_refresh.log"
+
+      # Load environment variables
+      source "$PROJECT_DIR/.env"
+
+      # Validate credentials
+      if [ -z "$TWITTER_USERNAME" ] || [ -z "$TWITTER_PASSWORD" ]; then
+          echo "$$(date): ERROR - TWITTER_USERNAME or TWITTER_PASSWORD not set" >> "$LOG_FILE"
+          exit 1
+      fi
+
+      # Create logs directory
+      mkdir -p "$(dirname "$LOG_FILE")"
+
+      echo "$$(date): Starting token refresh for @$TWITTER_USERNAME" >> "$LOG_FILE"
+
+      # Ensure venv exists with required packages
+      if [ ! -d "$VENV_DIR" ]; then
+          python3 -m venv "$VENV_DIR"
+          "$VENV_DIR/bin/pip" install nodriver pyotp curl_cffi >> "$LOG_FILE" 2>&1
+      fi
+
+      # Download browser script if not present
+      if [ ! -f "$NITTER_DIR/create_session_browser.py" ]; then
+          curl -sL -o "$NITTER_DIR/create_session_browser.py" \
+              https://raw.githubusercontent.com/zedeus/nitter/master/tools/create_session_browser.py
+      fi
+
+      # Build command
+      CMD="$VENV_DIR/bin/python $NITTER_DIR/create_session_browser.py $TWITTER_USERNAME $TWITTER_PASSWORD"
+      if [ -n "$TWITTER_TOTP_SECRET" ]; then
+          CMD="$CMD $TWITTER_TOTP_SECRET"
+      fi
+      CMD="$CMD --append $NITTER_DIR/sessions.jsonl"
+
+      # Run with xvfb
+      xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" $CMD >> "$LOG_FILE" 2>&1
+      RESULT=$?
+
+      if [ $RESULT -eq 0 ]; then
+          echo "$$(date): Token refresh successful" >> "$LOG_FILE"
+          # Restart Nitter to pick up new tokens
+          cd "$PROJECT_DIR" && docker compose restart nitter >> "$LOG_FILE" 2>&1 || true
+      else
+          echo "$$(date): Token refresh FAILED with exit code $RESULT" >> "$LOG_FILE"
+          exit $RESULT
+      fi
+
+  # Nitter token refresh timer (every 10 days)
+  - path: /etc/systemd/system/nitter-refresh.timer
+    content: |
+      [Unit]
+      Description=Nitter token refresh timer
+
+      [Timer]
+      OnCalendar=*-*-01,11,21 03:00:00
+      Persistent=true
+      RandomizedDelaySec=3600
+
+      [Install]
+      WantedBy=timers.target
+
+  # Nitter token refresh service
+  - path: /etc/systemd/system/nitter-refresh.service
+    content: |
+      [Unit]
+      Description=Nitter token refresh job
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/noyau/scripts/refresh_nitter_tokens.sh
+      TimeoutStartSec=300
+      Environment="DISPLAY=:99"
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Backup script (optional - Neon has built-in PITR)
+  - path: /opt/noyau/scripts/backup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Optional logical backup from Neon (Neon has built-in PITR)
+      # Requires pg_dump installed: apt install postgresql-client
+
+      BACKUP_DIR="/opt/noyau/backups"
+      DATE=$(date +%Y-%m-%d)
+
+      mkdir -p $BACKUP_DIR
+
+      # Load DATABASE_URL from .env
+      source /opt/noyau/.env
+
+      # Dump database
+      pg_dump "$DATABASE_URL" | gzip > "$BACKUP_DIR/noyau-$DATE.sql.gz"
+
+      # Keep only last 7 days
+      find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
+
+      echo "Backup completed: $BACKUP_DIR/noyau-$DATE.sql.gz"
+
+  # Backup timer
+  - path: /etc/systemd/system/noyau-backup.timer
+    content: |
+      [Unit]
+      Description=NoyauAI daily backup timer
+
+      [Timer]
+      OnCalendar=*-*-* 02:00:00
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+  # Backup service
+  - path: /etc/systemd/system/noyau-backup.service
+    content: |
+      [Unit]
+      Description=NoyauAI daily backup job
+      After=docker.service
+      Requires=docker.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/noyau/scripts/backup.sh
+
+      [Install]
+      WantedBy=multi-user.target
+
+# Final setup commands
+runcmd:
+  - systemctl daemon-reload
+  # NOTE: Hourly and daily timers disabled - scheduling handled by APScheduler in-app
+  # Uncomment below and set SCHEDULER_ENABLED=false to use systemd timers instead
+  # - systemctl enable noyau-hourly.timer
+  # - systemctl enable noyau-daily.timer
+  - systemctl enable noyau-backup.timer
+  # Enable Nitter token refresh timer (runs every 10 days)
+  - systemctl enable nitter-refresh.timer
+  - systemctl start nitter-refresh.timer
+  # Run initial token generation if credentials are set
+  - |
+    if [ -n "${twitter_username}" ] && [ -n "${twitter_password}" ]; then
+      echo "Running initial Nitter token generation..."
+      /opt/noyau/scripts/refresh_nitter_tokens.sh || echo "Initial token gen failed - run manually later"
+    fi
+  # Authenticate with GitHub Container Registry
+  - echo "${github_token}" | docker login ghcr.io -u ${github_username} --password-stdin

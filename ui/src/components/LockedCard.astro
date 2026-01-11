@@ -1,0 +1,60 @@
+---
+interface Props {
+  rank: number;
+  headline: string;
+  teaser: string;
+}
+
+const { rank, headline, teaser } = Astro.props;
+---
+
+<article class="card relative overflow-hidden group" data-rank={rank}>
+  {/* Content with fade effect */}
+  <div class="relative">
+    <div class="flex items-start gap-4">
+      <span class="rank-badge rank-badge-locked shrink-0">
+        {rank}
+      </span>
+      <div class="flex-1 min-w-0">
+        <h2 class="text-h2 text-text/70 leading-snug">
+          {headline}
+        </h2>
+        <p class="mt-2 text-body text-muted/60 line-clamp-2">
+          {teaser}
+        </p>
+      </div>
+    </div>
+
+    {/* Placeholder content (blurred) */}
+    <div class="mt-4 pl-13 space-y-2 select-none" aria-hidden="true">
+      <div class="h-4 bg-border/30 rounded w-full"></div>
+      <div class="h-4 bg-border/30 rounded w-4/5"></div>
+      <div class="h-4 bg-border/30 rounded w-3/5"></div>
+    </div>
+
+    {/* Gradient overlay */}
+    <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate via-slate/80 to-transparent pointer-events-none"></div>
+  </div>
+
+  {/* Unlock CTA */}
+  <div class="relative mt-4 pt-4 border-t border-border/30 text-center">
+    <a
+      href="#subscribe"
+      class="inline-flex items-center gap-2 text-body text-signal hover:text-signal/80 transition-colors group/link"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+      <span>Get the full brief via magic link</span>
+      <svg class="w-4 h-4 group-hover/link:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
+  </div>
+</article>
+
+<style>
+  .pl-13 {
+    padding-left: 3.25rem;
+  }
+</style>

@@ -1,0 +1,223 @@
+# NoyauAI Configuration
+# See SPECS.md for full documentation
+
+digest:
+  max_items: 10
+  send_time_default_local: "08:00"
+  web_soft_gate:
+    free_items: 5
+
+filters:
+  exclude_politics: true
+  politics_keywords:
+    - "election"
+    - "senate"
+    - "parliament"
+    - "candidate"
+    - "campaign"
+    - "prime minister"
+    - "president"
+    - "vote"
+    - "party"
+    - "democrat"
+    - "republican"
+    - "congress"
+    - "legislation"
+    - "ballot"
+
+ranking:
+  half_life_hours: 18
+  weights:
+    recency: 0.30
+    engagement: 0.20
+    velocity: 0.25
+    echo: 0.25
+  echo_window_hours: 12
+  viral:
+    engagement_pctl: 90
+    velocity_pctl: 90
+    echo_accounts: 3
+    multiplier: 1.35
+  practical_boost_keywords:
+    - "release"
+    - "changelog"
+    - "benchmark"
+    - "postmortem"
+    - "incident"
+    - "outage"
+    - "cve"
+    - "exploit"
+    - "patch"
+    - "migration"
+    - "performance"
+  practical_boost_value: 0.15
+  already_seen_penalty: 0.30
+
+seeds:
+  # RSS feeds for cloud providers, changelogs, kubernetes, arXiv
+  rss_feeds:
+    # Cloud provider blogs
+    - url: "https://cloud.google.com/blog/rss"
+      name: "Google Cloud Blog"
+    - url: "https://aws.amazon.com/blogs/aws/feed/"
+      name: "AWS Blog"
+    # Kubernetes
+    - url: "https://kubernetes.io/feed.xml"
+      name: "Kubernetes Blog"
+    # Hacker News (top stories)
+    - url: "https://hnrss.org/frontpage"
+      name: "Hacker News"
+    # arXiv CS (AI/ML)
+    - url: "http://export.arxiv.org/rss/cs.AI"
+      name: "arXiv CS.AI"
+    - url: "http://export.arxiv.org/rss/cs.LG"
+      name: "arXiv CS.LG"
+
+  # GitHub releases.atom feeds for key projects
+  github_release_feeds:
+    - url: "https://github.com/kubernetes/kubernetes/releases.atom"
+      name: "Kubernetes"
+    - url: "https://github.com/golang/go/releases.atom"
+      name: "Go"
+    - url: "https://github.com/python/cpython/releases.atom"
+      name: "Python"
+    - url: "https://github.com/langchain-ai/langchain/releases.atom"
+      name: "LangChain"
+    - url: "https://github.com/openai/openai-python/releases.atom"
+      name: "OpenAI Python SDK"
+    - url: "https://github.com/astral-sh/uv/releases.atom"
+      name: "uv"
+    - url: "https://github.com/astral-sh/ruff/releases.atom"
+      name: "Ruff"
+    - url: "https://github.com/apache/kafka/releases.atom"
+      name: "Apache Kafka"
+    - url: "https://github.com/open-telemetry/opentelemetry-python/releases.atom"
+      name: "OpenTelemetry Python"
+    - url: "https://github.com/dbt-labs/dbt-core/releases.atom"
+      name: "dbt-core"
+
+  # Curated X/Twitter accounts (fetched via Nitter RSS)
+  x_accounts:
+    # Core tech accounts
+    - username: "kelaboratory"
+      name: "Karpathy"
+    - username: "sama"
+      name: "Sam Altman"
+    - username: "elikifolli"
+      name: "Elie Kikfolli"
+    - username: "simonw"
+      name: "Simon Willison"
+    - username: "taborsky"
+      name: "Mitchell Hashimoto"
+    # Developer experience
+    - username: "levelsio"
+      name: "Pieter Levels"
+    - username: "swyx"
+      name: "swyx"
+    # SRE/Observability
+    - username: "lizthegrey"
+      name: "Liz Fong-Jones"
+    - username: "maboroshi"
+      name: "Charity Majors"
+
+  # Reddit subreddits
+  reddit_subreddits:
+    - name: "programming"
+    - name: "golang"
+    - name: "Python"
+    - name: "kubernetes"
+    - name: "devops"
+    - name: "MachineLearning"
+    - name: "ExperiencedDevs"
+
+  # dev.to tags
+  devto_tags:
+    - "python"
+    - "go"
+    - "kubernetes"
+    - "devops"
+    - "machinelearning"
+    - "ai"
+    - "webdev"
+
+  # YouTube channels (with transcript support)
+  youtube_channels:
+    - channel_id: "UCsBjURrPoezykLs9EqgamOA"
+      name: "Fireship"
+    - channel_id: "UCvjgXvBlbQiAfffMZ6zfLKw"
+      name: "ThePrimeagen"
+    - channel_id: "UC8butISFwT-Wl7EV0hUK0BQ"
+      name: "freeCodeCamp"
+
+# Nitter configuration for X/Twitter RSS feeds
+# Uses self-hosted Nitter instance (requires Twitter session tokens)
+# See nitter/README.md for setup instructions
+nitter:
+  instances:
+    # Self-hosted instance (Docker: nitter:8080, local dev: localhost:8080)
+    - "nitter:8080"
+    - "localhost:8080"
+  timeout_seconds: 10
+  max_retries: 3
+
+# Discord community integration
+discord:
+  enabled: true  # Set to true once webhook is configured
+  invite_url: "https://discord.gg/YCbuNqFucb"  # Public invite link for Discord server
+  post_time_utc: "07:30"  # When to post daily digest (after email)
+
+# Twitter thread posting for daily digest
+# Uses Twitter API v2 with OAuth 1.0a User Context
+# Credentials configured via environment variables (see .env.example)
+twitter:
+  enabled: true  # Set to true once API credentials are configured
+  intro_template: "{date} Tech Briefing\n\n10 things worth knowing today. No fluff.\n\nLet's go ↓"
+  outro_template: "That's your daily briefing.\n\nGet this in your inbox → noyau.news\nFollow for tomorrow's thread\n\nSee you tomorrow ✌️"
+  include_hashtags: true
+  retry_delay_seconds: 5
+  max_retries: 3
+
+# Video generation for short-form content (YouTube Shorts, etc.)
+video:
+  enabled: false  # Set to true once Pexels + YouTube credentials are configured
+  count: 3  # Number of videos to generate daily (top N stories)
+  output_dir: "./output/videos"  # Directory for generated videos
+
+  # Video format (YouTube Shorts specs)
+  format:
+    width: 1080
+    height: 1920
+    fps: 30
+    duration_target: 45  # Target duration in seconds
+    max_duration: 60  # Maximum duration allowed
+
+  # Visual style
+  style:
+    font: "Inter"
+    font_size: 48
+    font_color: "#FFFFFF"
+    background_color: "#0A0A0A"
+    accent_color: "#22D3EE"  # NoyauAI signal cyan
+
+  # Stock footage settings (Pexels API)
+  stock_footage:
+    provider: "pexels"
+    orientation: "portrait"
+    per_page: 5
+    fallback_queries:
+      - "technology"
+      - "coding"
+      - "futuristic"
+      - "data visualization"
+
+  # YouTube upload settings
+  youtube:
+    category_id: "28"  # Science & Technology
+    privacy_status: "unlisted"  # Start with unlisted for testing
+    made_for_kids: false
+    default_language: "en"
+    default_tags:
+      - "tech news"
+      - "programming"
+      - "noyau"
+      - "developer news"

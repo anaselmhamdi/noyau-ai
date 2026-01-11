@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <text x="2" y="22" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" fill="#94A3B8">[</text>
+  <circle cx="16" cy="16" r="5" fill="#22D3EE"/>
+  <text x="22" y="22" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" fill="#94A3B8">]</text>
+</svg>

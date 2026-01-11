@@ -1,0 +1,164 @@
+# Hetzner Cloud API Token
+# Get from: https://console.hetzner.cloud/projects/YOUR_PROJECT/security/tokens
+hcloud_token = "YOUR_HCLOUD_API_TOKEN"
+
+# SSH Public Key
+# Generate with: ssh-keygen -t ed25519 -C "noyau-deploy" -f ~/.ssh/noyau_deploy
+ssh_public_key = "ssh-ed25519 AAAAC3... deploy@noyau"
+
+# IP address allowed for SSH access (your IP)
+# Find with: curl ifconfig.me
+ssh_allowed_ip = "YOUR_IP_ADDRESS/32"
+
+# Domain name
+domain_name = "noyau.news"
+
+# Server configuration
+server_type = "cx22"      # 2 vCPU, 4GB RAM, 40GB SSD (~€4/mo)
+location    = "nbg1"      # Nuremberg, Germany
+server_name = "noyau-prod"
+
+# =============================================================================
+# Application Secrets
+# =============================================================================
+
+# Neon PostgreSQL connection string
+# Get from: https://console.neon.tech → Project → Connection Details
+# IMPORTANT: Change "postgresql://" to "postgresql+asyncpg://" for SQLAlchemy async
+neon_database_url = "postgresql+asyncpg://user:pass@ep-xxx.region.aws.neon.tech/noyau?sslmode=require"
+
+# JWT signing key (generate with: openssl rand -hex 32)
+secret_key = "GENERATE_SECURE_KEY"
+
+# OpenAI API key - https://platform.openai.com/api-keys
+openai_api_key = "sk-..."
+
+# Resend API key - https://resend.com/api-keys
+resend_api_key = "re_..."
+
+# =============================================================================
+# GitHub Container Registry
+# =============================================================================
+
+# Your GitHub username
+github_username = "your-github-username"
+
+# GitHub PAT with read:packages scope
+# Create at: https://github.com/settings/tokens/new?scopes=read:packages
+github_token = "ghp_..."
+
+# Repository in owner/repo format
+github_repo = "your-username/noyau-ai"
+
+# =============================================================================
+# Twitter/Nitter Credentials (Optional)
+# =============================================================================
+
+# Twitter account for Nitter session tokens (dedicated account recommended)
+twitter_username = ""
+twitter_password = ""
+
+# TOTP secret for 2FA (base32 string, only if 2FA enabled)
+twitter_totp_secret = ""
+
+# =============================================================================
+# Twitter API v2 (Optional - for posting daily digest threads)
+# =============================================================================
+
+# Setup steps:
+# 1. Go to https://developer.twitter.com/en/portal/projects-and-apps
+# 2. Create a project and app with "Read and write" permissions
+# 3. Generate API Key and Secret (under "Keys and tokens")
+# 4. Generate Access Token and Secret with read/write permissions
+twitter_api_key            = ""
+twitter_api_secret         = ""
+twitter_access_token       = ""
+twitter_access_token_secret = ""
+
+# =============================================================================
+# Analytics (Optional)
+# =============================================================================
+
+# PostHog - https://posthog.com
+# Get your project API key from Settings > Project > Project API Key
+posthog_api_key = ""
+posthog_host    = "https://eu.i.posthog.com"
+
+# =============================================================================
+# Email Validation (Optional)
+# =============================================================================
+
+# Verifalia - https://verifalia.com
+verifalia_username        = ""
+verifalia_password        = ""
+verifalia_quality         = "Standard"
+verifalia_timeout         = 30
+verifalia_cache_ttl_hours = 24
+
+# =============================================================================
+# Discord (Optional)
+# =============================================================================
+
+# Discord webhook for notifications
+# Create at: Server Settings > Integrations > Webhooks
+discord_webhook_url = ""
+
+# =============================================================================
+# LLM Configuration
+# =============================================================================
+
+# OpenAI model: gpt-4o (default), gpt-4o-mini, gpt-4-turbo
+llm_model = "gpt-4o"
+
+# =============================================================================
+# Scheduler
+# =============================================================================
+
+# Enable in-app APScheduler for hourly/daily jobs
+# Set to false to use external scheduling (systemd timers, cron, etc.)
+scheduler_enabled = true
+
+# =============================================================================
+# Video Generation (Optional)
+# =============================================================================
+
+# Enable video generation feature
+video_enabled    = false
+video_output_dir = "/opt/noyau/output/videos"
+
+# Pexels API (free stock footage) - https://www.pexels.com/api/new/
+pexels_api_key = ""
+
+# Freesound API (free background music) - https://freesound.org/apiv2/apply/
+freesound_client_id     = ""
+freesound_client_secret = ""
+
+# TTS provider: "edge" (free), "openai" (default), "elevenlabs" (best quality)
+tts_provider = "openai"
+
+# ElevenLabs API (best TTS) - https://elevenlabs.io
+elevenlabs_api_key = ""
+
+# YouTube Data API v3 (automated uploads)
+# Setup steps:
+# 1. Create project at https://console.cloud.google.com
+# 2. Enable "YouTube Data API v3" in APIs & Services → Library
+# 3. Configure OAuth consent screen (External, add your email as test user)
+# 4. Create credentials: APIs & Services → Credentials → Create → OAuth client ID → Desktop app
+# 5. Get refresh token - see .env.example for the Python script to run
+youtube_client_id     = ""
+youtube_client_secret = ""
+youtube_refresh_token = ""
+
+# =============================================================================
+# S3 Storage (Optional)
+# =============================================================================
+
+# For standard AWS S3 or S3-compatible storage (MinIO, Cloudflare R2, DigitalOcean Spaces)
+s3_bucket_name       = ""
+s3_region            = "us-east-1"
+s3_access_key_id     = ""
+s3_secret_access_key = ""
+
+# S3-compatible endpoint URL (leave empty for standard AWS S3)
+s3_endpoint_url = ""

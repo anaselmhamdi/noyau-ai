@@ -1,0 +1,99 @@
+---
+interface Props {
+  variant?: 'default' | 'hero';
+  issueDate?: string;
+}
+
+const { variant = 'default', issueDate } = Astro.props;
+const isHero = variant === 'hero';
+const formLocation = isHero ? 'hero' : 'footer';
+---
+
+<div
+  id="subscribe"
+  class={isHero ? 'max-w-md mx-auto' : ''}
+  data-form-location={formLocation}
+  data-issue-date={issueDate || ''}
+>
+  <form
+    action="/auth/request-link"
+    method="POST"
+    class={`flex ${isHero ? 'flex-col sm:flex-row' : ''} gap-3`}
+    id="subscribe-form"
+  >
+    <div class="relative flex-1">
+      <input
+        type="email"
+        name="email"
+        placeholder="you@company.com"
+        required
+        autocomplete="email"
+        class={`input ${isHero ? 'text-center sm:text-left' : ''}`}
+        id="subscribe-email"
+      />
+      {/* Email icon */}
+      <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:block">
+        <svg class="w-4 h-4 text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary whitespace-nowrap">
+      <span>Get the brief</span>
+      <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+      </svg>
+    </button>
+  </form>
+
+  {/* Success/Error messages would be handled by JS */}
+  <div id="subscribe-message" class="mt-3 text-center text-body hidden">
+    <p class="text-good" id="subscribe-success">Check your inbox for the magic link.</p>
+    <p class="text-bad" id="subscribe-error">Something went wrong. Please try again.</p>
+  </div>
+</div>
+
+<script>
+  import { trackSignupFormShown, trackSignupStarted } from '../lib/posthog';
+
+  const container = document.getElementById('subscribe');
+  const form = document.getElementById('subscribe-form') as HTMLFormElement;
+  const emailInput = document.getElementById('subscribe-email') as HTMLInputElement;
+
+  if (container && form && emailInput) {
+    const formLocation = container.dataset.formLocation as 'hero' | 'footer';
+    const issueDate = container.dataset.issueDate || undefined;
+
+    // Track form visibility with IntersectionObserver
+    let formShownTracked = false;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !formShownTracked) {
+          formShownTracked = true;
+          trackSignupFormShown('page_load', issueDate);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    observer.observe(container);
+
+    // Track when user submits
+    let signupStartedTracked = false;
+    form.addEventListener('submit', () => {
+      const email = emailInput.value;
+      if (email && !signupStartedTracked) {
+        signupStartedTracked = true;
+        trackSignupStarted(email, formLocation, issueDate);
+      }
+    });
+  }
+</script>
+
+<style>
+  /* Add padding for email icon on larger screens */
+  @media (min-width: 640px) {
+    #subscribe-email {
+      padding-left: 2.75rem;
+    }
+  }
+</style>

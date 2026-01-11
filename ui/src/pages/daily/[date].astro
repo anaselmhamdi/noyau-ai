@@ -1,0 +1,214 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import IssueCard from '../../components/IssueCard.astro';
+import LockedCard from '../../components/LockedCard.astro';
+import ShareSnippet from '../../components/ShareSnippet.astro';
+import SubscribeForm from '../../components/SubscribeForm.astro';
+import {
+  generateNewsArticleSchema,
+  generateItemListSchema,
+  generateBreadcrumbSchema,
+} from '../../lib/schema';
+
+export const prerender = false;
+
+const { date } = Astro.params;
+
+const res = await fetch(`${import.meta.env.API_URL || ''}/api/issues/${date}?view=public`);
+const issue = await res.json();
+
+const formattedDate = new Date(date!).toLocaleDateString('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric'
+});
+
+const freeItems = issue.items?.filter((item: any) => !item.locked) || [];
+const lockedItems = issue.items?.filter((item: any) => item.locked) || [];
+const missedItems = issue.missed_items || [];
+const hasLockedItems = lockedItems.length > 0;
+const hasMissedItems = missedItems.length > 0;
+const isLatest = issue.is_latest || false;
+
+// SEO: Dynamic description from top headlines
+const topHeadlines = issue.items?.slice(0, 3).map((item: any) => item.headline) || [];
+const pageDescription = topHeadlines.length > 0
+  ? `${formattedDate}: ${topHeadlines.join(' | ')}`
+  : `Daily engineering digest for ${formattedDate}. 10 things worth knowing.`;
+
+const canonicalUrl = `https://noyau.news/daily/${date}`;
+const publishedTime = `${date}T08:00:00Z`;
+const pageTitle = `Daily Digest - ${formattedDate}`;
+
+// JSON-LD schemas
+const articleSchema = generateNewsArticleSchema(date!, pageTitle, pageDescription);
+const itemListSchema = generateItemListSchema(date!, issue.items || []);
+const breadcrumbSchema = generateBreadcrumbSchema([
+  { name: 'Home', url: 'https://noyau.news' },
+  { name: formattedDate, url: canonicalUrl },
+]);
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={pageDescription}
+  canonicalUrl={canonicalUrl}
+  ogType="article"
+  publishedTime={publishedTime}
+>
+  <Fragment slot="structured-data">
+    <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+    <script type="application/ld+json" set:html={JSON.stringify(itemListSchema)} />
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <Header slot="header" />
+
+  <article class="py-8 sm:py-12" data-issue-date={date} data-is-latest={isLatest} data-has-locked={hasLockedItems}>
+    <div class="container">
+      {/* Header */}
+      <header class="mb-8 sm:mb-10">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1">
+              <span class="text-muted font-mono">[</span>
+              <span class="w-2 h-2 bg-signal rounded-full"></span>
+              <span class="text-muted font-mono">]</span>
+            </div>
+            <time datetime={date} class="font-mono text-h2 text-text">
+              {formattedDate}
+            </time>
+            {isLatest && (
+              <span class="tag-chip bg-signal-muted text-signal">Latest</span>
+            )}
+          </div>
+          <ShareSnippet date={date!} items={issue.items || []} />
+        </div>
+        <h1 class="sr-only">noyau Daily Tech Digest - {formattedDate}</h1>
+      </header>
+
+      {/* Issue items */}
+      <div class="space-y-4" id="issue-items">
+        {freeItems.map((item: any, index: number) => (
+          <div
+            class="opacity-0 animate-fade-in-up"
+            style={`animation-delay: ${index * 75}ms`}
+          >
+            <IssueCard
+              rank={item.rank}
+              headline={item.headline}
+              teaser={item.teaser}
+              takeaway={item.takeaway}
+              bullets={item.bullets || []}
+              citations={item.citations || []}
+              confidence={item.confidence}
+              topic={item.topic}
+            />
+          </div>
+        ))}
+
+        {/* Soft gate */}
+        {hasLockedItems && (
+          <div class="py-8" id="soft-gate-trigger">
+            <div class="card bg-slate/50 border-dashed text-center py-8">
+              <div class="flex items-center justify-center gap-2 mb-3">
+                <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-subtle"></span>
+                <span class="section-header">Items 6-10</span>
+              </div>
+              <p class="text-body text-muted mb-6">
+                Get the complete daily brief delivered to your inbox.
+              </p>
+              <a href="#subscribe" class="btn btn-primary">
+                Unlock with magic link
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Locked items */}
+        {lockedItems.map((item: any, index: number) => (
+          <div
+            class="opacity-0 animate-fade-in"
+            style={`animation-delay: ${(freeItems.length + index) * 75}ms`}
+          >
+            <LockedCard rank={item.rank} headline={item.headline} teaser={item.teaser} />
+          </div>
+        ))}
+
+        {/* You may have missed section */}
+        {hasMissedItems && (
+          <section class="mt-12 pt-8 border-t border-border/50">
+            <div class="flex items-center gap-2 mb-6">
+              <svg class="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="section-header">You may have missed</span>
+            </div>
+            <div class="space-y-3">
+              {missedItems.map((item: any) => (
+                <div class="card bg-slate/30 border-border/30 hover:bg-slate/50 transition-colors">
+                  <div class="flex items-start gap-3">
+                    <span class="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full border border-dashed border-border text-muted font-mono text-micro">
+                      ↻
+                    </span>
+                    <div>
+                      <h3 class="text-body font-medium text-text leading-snug mb-1">
+                        {item.headline}
+                      </h3>
+                      <p class="text-body text-muted">
+                        {item.teaser}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* Footer subscribe form */}
+      <footer class="mt-12 pt-8 border-t border-border/50" id="subscribe">
+        <div class="text-center mb-6">
+          <h2 class="text-h2 text-text mb-2">Stay in the loop</h2>
+          <p class="text-body text-muted">Get tomorrow's brief delivered to your inbox.</p>
+        </div>
+        <SubscribeForm variant="hero" issueDate={date} />
+      </footer>
+    </div>
+  </article>
+
+  <Footer slot="footer" />
+</BaseLayout>
+
+<script>
+  import { trackIssuePageView, trackSoftGateHit, getPageLoadTime } from '../../lib/posthog';
+
+  const article = document.querySelector('article');
+  const softGateTrigger = document.getElementById('soft-gate-trigger');
+
+  if (article) {
+    const issueDate = article.dataset.issueDate || '';
+    const isLatest = article.dataset.isLatest === 'true';
+    const hasLocked = article.dataset.hasLocked === 'true';
+    const itemsVisible = hasLocked ? 5 : 10;
+
+    trackIssuePageView(issueDate, isLatest, itemsVisible as 5 | 10);
+
+    if (softGateTrigger) {
+      let gateHitTracked = false;
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !gateHitTracked) {
+            gateHitTracked = true;
+            trackSoftGateHit(6, issueDate, getPageLoadTime());
+          }
+        });
+      }, { threshold: 0.5 });
+
+      observer.observe(softGateTrigger);
+    }
+  }
+</script>

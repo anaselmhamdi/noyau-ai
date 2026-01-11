@@ -1,0 +1,36 @@
+# noyau.news
+> Daily engineering digest. 10 things worth knowing, delivered every morning.
+
+NoyauAI aggregates content from RSS feeds, GitHub releases, X/Twitter, Reddit, dev.to, and YouTube. Stories are clustered by topic, scored algorithmically, and distilled into actionable summaries.
+
+## Content
+
+- Daily issues at /daily/YYYY-MM-DD with 10 ranked stories
+- Each story: headline, teaser, takeaway, bullet points, source citations
+- Items 1-5 publicly accessible; items 6-10 require subscription
+- New issues published daily at 08:00 UTC
+
+## Topics
+
+- Cloud infrastructure (AWS, GCP, Azure)
+- Open source releases and changelogs
+- Security advisories and CVEs
+- Developer tooling and productivity
+- Machine learning and AI
+- Site reliability and observability
+
+## API
+
+- GET /api/issues/latest - most recent issue
+- GET /api/issues/{YYYY-MM-DD} - issue by date
+- GET /api/issues/dates - list of all published dates
+
+## Feeds
+
+- RSS: /feed.xml
+- Sitemap: /sitemap.xml
+- Extended context: /llms-full.txt
+
+## Crawling
+
+Please respect rate limits: 1 request per second.

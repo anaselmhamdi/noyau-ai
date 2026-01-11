@@ -1,0 +1,79 @@
+---
+interface PreviewItem {
+  rank: number;
+  headline: string;
+  teaser: string;
+}
+
+interface Props {
+  items: PreviewItem[];
+  date: string;
+}
+
+const { items, date } = Astro.props;
+const displayItems = items.slice(0, 3);
+
+const formattedDate = new Date(date).toLocaleDateString('en-US', {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric'
+});
+---
+
+<section class="py-16 sm:py-20">
+  <div class="container">
+    <div class="flex items-center justify-between mb-8">
+      <div class="flex items-center gap-3">
+        <span class="section-header">Today's Signal</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-signal animate-pulse-subtle"></span>
+      </div>
+      <time datetime={date} class="font-mono text-micro text-muted">
+        {formattedDate}
+      </time>
+    </div>
+
+    <div class="space-y-4">
+      {displayItems.map((item, index) => (
+        <article
+          class="card-interactive group opacity-0 animate-fade-in-up"
+          style={`animation-delay: ${index * 100}ms`}
+        >
+          <div class="flex items-start gap-4">
+            <span class="rank-badge shrink-0 group-hover:scale-105 transition-transform">
+              {item.rank}
+            </span>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-h2 text-text group-hover:text-signal transition-colors leading-snug">
+                {item.headline}
+              </h3>
+              <p class="mt-2 text-body text-muted line-clamp-2">
+                {item.teaser}
+              </p>
+            </div>
+            <svg
+              class="w-5 h-5 text-muted opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all shrink-0 mt-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <div class="mt-8 text-center">
+      <a
+        href={`/daily/${date}`}
+        class="inline-flex items-center gap-2 btn btn-ghost text-signal hover:text-signal"
+      >
+        <span>See full digest</span>
+        <span class="font-mono text-micro">(7 more)</span>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>

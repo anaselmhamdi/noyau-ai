@@ -1,0 +1,79 @@
+---
+interface Item {
+  rank: number;
+  headline: string;
+}
+
+interface Props {
+  date: string;
+  items: Item[];
+}
+
+const { date, items } = Astro.props;
+const top3 = items.slice(0, 3);
+const formattedDate = new Date(date).toLocaleDateString('en-US', {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric'
+});
+---
+
+<div class="relative">
+  <button
+    id="share-btn"
+    class="btn btn-ghost flex items-center gap-2 text-body"
+    data-date={date}
+    data-formatted-date={formattedDate}
+    data-items={JSON.stringify(top3)}
+    aria-label="Share digest"
+  >
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+    </svg>
+    <span class="hidden sm:inline">Share</span>
+  </button>
+
+  {/* Feedback tooltip */}
+  <div
+    id="share-feedback"
+    class="absolute right-0 top-full mt-2 px-3 py-1.5 rounded-lg bg-good text-ink text-micro font-medium opacity-0 pointer-events-none transition-opacity whitespace-nowrap"
+  >
+    <svg class="inline w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    Copied!
+  </div>
+</div>
+
+<script>
+  import { trackShareSnippetCopied } from '../lib/posthog';
+
+  const btn = document.getElementById('share-btn');
+  const feedback = document.getElementById('share-feedback');
+
+  btn?.addEventListener('click', async () => {
+    const formattedDate = btn.dataset.formattedDate;
+    const items = JSON.parse(btn.dataset.items || '[]');
+    const date = btn.dataset.date;
+
+    const text = `noyau — ${formattedDate}\n\n${items.map((item: {rank: number, headline: string}) => `${item.rank}. ${item.headline}`).join('\n')}\n\n${window.location.origin}/daily/${date}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+
+      // Track share event
+      if (date) {
+        trackShareSnippetCopied(date, items.length);
+      }
+
+      feedback?.classList.remove('opacity-0');
+      feedback?.classList.remove('pointer-events-none');
+      setTimeout(() => {
+        feedback?.classList.add('opacity-0');
+        feedback?.classList.add('pointer-events-none');
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  });
+</script>

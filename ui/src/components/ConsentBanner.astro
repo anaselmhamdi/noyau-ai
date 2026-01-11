@@ -1,0 +1,115 @@
+---
+// Consent banner for PostHog analytics tracking
+---
+
+<div
+  id="consent-banner"
+  class="fixed bottom-0 inset-x-0 z-50 p-4 transform translate-y-full transition-transform duration-smooth"
+  role="dialog"
+  aria-labelledby="consent-title"
+  aria-describedby="consent-description"
+>
+  <div class="container max-w-2xl">
+    <div class="card bg-slate/95 backdrop-blur-lg border-border/80 shadow-card-hover">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        {/* Content */}
+        <div class="flex-1">
+          <h3 id="consent-title" class="text-body font-semibold text-text mb-1">
+            We value your privacy
+          </h3>
+          <p id="consent-description" class="text-micro text-muted">
+            We use cookies to analyze site usage and improve your experience.
+            <a href="/privacy" class="link-accent ml-1">Learn more</a>
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div class="flex items-center gap-3 shrink-0">
+          <button
+            id="consent-reject"
+            class="btn btn-ghost text-micro px-4 py-2"
+            type="button"
+          >
+            Decline
+          </button>
+          <button
+            id="consent-accept"
+            class="btn btn-primary text-micro px-4 py-2"
+            type="button"
+          >
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CONSENT_KEY = 'noyau_analytics_consent';
+  const banner = document.getElementById('consent-banner');
+  const acceptBtn = document.getElementById('consent-accept');
+  const rejectBtn = document.getElementById('consent-reject');
+
+  function getConsent(): 'accepted' | 'rejected' | null {
+    try {
+      return localStorage.getItem(CONSENT_KEY) as 'accepted' | 'rejected' | null;
+    } catch {
+      return null;
+    }
+  }
+
+  function setConsent(value: 'accepted' | 'rejected') {
+    try {
+      localStorage.setItem(CONSENT_KEY, value);
+    } catch {
+      // localStorage not available
+    }
+  }
+
+  function showBanner() {
+    banner?.classList.remove('translate-y-full');
+  }
+
+  function hideBanner() {
+    banner?.classList.add('translate-y-full');
+  }
+
+  function enableTracking() {
+    // PostHog is already initialized, just opt in
+    if ((window as any).posthog) {
+      (window as any).posthog.opt_in_capturing();
+    }
+  }
+
+  function disableTracking() {
+    // Opt out of PostHog tracking
+    if ((window as any).posthog) {
+      (window as any).posthog.opt_out_capturing();
+    }
+  }
+
+  // Check consent on page load
+  const consent = getConsent();
+  if (consent === null) {
+    // No consent recorded, show banner after a short delay
+    setTimeout(showBanner, 1500);
+  } else if (consent === 'rejected') {
+    disableTracking();
+  }
+  // If accepted, tracking is enabled by default
+
+  // Handle accept
+  acceptBtn?.addEventListener('click', () => {
+    setConsent('accepted');
+    enableTracking();
+    hideBanner();
+  });
+
+  // Handle reject
+  rejectBtn?.addEventListener('click', () => {
+    setConsent('rejected');
+    disableTracking();
+    hideBanner();
+  });
+</script>

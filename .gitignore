@@ -1,44 +1,47 @@
-# Dependencies
-node_modules/
+# OS
+.DS_Store
 
-# Build output
-dist/
-.output/
-
-# Astro
-.astro/
+# Editor
+.idea/
+.vscode/
+*.swp
 
 # Environment
 .env
 .env.*
 !.env.example
 
-# Logs
+# Node
+node_modules/
 *.log
-npm-debug.log*
 
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
+# Astro / Vite
+dist/
+.astro/
 
-# Cache
-.cache/
-.turbo/
+# Logs
+logs/
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
 venv/
 .venv/
-env/
-.egg-info/
-*.egg
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# Generated content
+output/
+public/issues/
+
+# Nitter session tokens (sensitive)
+nitter/sessions.jsonl
+.coverage

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Noyau - {{ issue_date }}</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td { font-family: Arial, sans-serif !important; }
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0B0F14;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #0B0F14;">
+        <tr>
+            <td align="center" style="padding: 32px 16px;">
+                <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 16px 32px; text-align: center;">
+                            <table role="presentation" style="border-collapse: collapse; margin: 0 auto;">
+                                <tr>
+                                    <td style="padding-right: 8px; vertical-align: middle;">
+                                        <span style="display: inline-block; font-size: 18px; color: #94A3B8;">[</span>
+                                        <span style="display: inline-block; width: 8px; height: 8px; background-color: #22D3EE; border-radius: 50%; margin: 0 2px;"></span>
+                                        <span style="display: inline-block; font-size: 18px; color: #94A3B8;">]</span>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <span style="font-size: 20px; font-weight: 600; color: #E5E7EB; letter-spacing: -0.5px;">Noyau</span><span style="font-size: 20px; font-weight: 600; color: #22D3EE; letter-spacing: -0.5px;">News</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 6px 0 0 0; font-size: 12px; color: #94A3B8; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                {{ issue_date }} &bull; 10 items
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Content Card -->
+                    <tr>
+                        <td>
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #111827; border-radius: 16px; border: 1px solid #223047;">
+
+                                <!-- Full Items (1-5) -->
+                                {% for item in full_items %}
+                                <tr>
+                                    <td style="padding: 24px 28px; {% if not loop.last or teaser_items %}border-bottom: 1px solid #223047;{% endif %}">
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="width: 36px; vertical-align: top;">
+                                                    <span style="display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background-color: {% if loop.index <= 3 %}#22D3EE{% else %}#223047{% endif %}; color: {% if loop.index <= 3 %}#0B0F14{% else %}#94A3B8{% endif %}; border-radius: 50%; font-size: 13px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        {{ loop.index }}
+                                                    </span>
+                                                </td>
+                                                <td style="padding-left: 12px; vertical-align: top;">
+                                                    <h3 style="margin: 0 0 8px 0; font-size: 17px; font-weight: 600; color: #E5E7EB; line-height: 1.3;">
+                                                        {{ item.headline }}
+                                                    </h3>
+                                                    <p style="margin: 0 0 12px 0; font-size: 14px; line-height: 21px; color: #94A3B8;">
+                                                        {{ item.teaser }}
+                                                    </p>
+                                                    {% if item.bullets %}
+                                                    <ul style="margin: 0 0 12px 0; padding-left: 18px;">
+                                                        {% for bullet in item.bullets %}
+                                                        <li style="font-size: 13px; line-height: 19px; color: #94A3B8; margin-bottom: 4px;">
+                                                            {{ bullet }}
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                    {% endif %}
+                                                    {% if item.citations %}
+                                                    <p style="margin: 0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        {% for citation in item.citations %}
+                                                        <a href="{{ citation.url }}" style="color: #22D3EE; text-decoration: none;">{{ citation.label }}</a>{% if not loop.last %} <span style="color: #223047;">&bull;</span> {% endif %}
+                                                        {% endfor %}
+                                                    </p>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                <!-- Teaser Items (6-10) -->
+                                {% if teaser_items %}
+                                <tr>
+                                    <td style="padding: 20px 28px 12px 28px;">
+                                        <p style="margin: 0; font-size: 11px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                            More signal
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% for item in teaser_items %}
+                                <tr>
+                                    <td style="padding: 10px 28px; {% if loop.last and not missed_items %}padding-bottom: 24px;{% endif %}">
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="width: 36px; vertical-align: top;">
+                                                    <span style="display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background-color: transparent; border: 1px solid #223047; color: #94A3B8; border-radius: 50%; font-size: 13px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        {{ loop.index + 5 }}
+                                                    </span>
+                                                </td>
+                                                <td style="padding-left: 12px; vertical-align: top;">
+                                                    <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #E5E7EB;">
+                                                        {{ item.headline }}
+                                                    </h3>
+                                                    <p style="margin: 0 0 6px 0; font-size: 13px; line-height: 19px; color: #94A3B8;">
+                                                        {{ item.teaser }}
+                                                    </p>
+                                                    {% if item.citations %}
+                                                    <p style="margin: 0; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        {% for citation in item.citations %}
+                                                        <a href="{{ citation.url }}" style="color: #22D3EE; text-decoration: none;">{{ citation.label }}</a>{% if not loop.last %} <span style="color: #223047;">&bull;</span> {% endif %}
+                                                        {% endfor %}
+                                                    </p>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+
+                                <!-- You May Have Missed -->
+                                {% if missed_items %}
+                                <tr>
+                                    <td style="padding: 20px 28px 12px 28px; border-top: 1px solid #223047;">
+                                        <p style="margin: 0; font-size: 11px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                            You may have missed
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% for item in missed_items %}
+                                <tr>
+                                    <td style="padding: 10px 28px; {% if loop.last %}padding-bottom: 24px;{% endif %}">
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="width: 36px; vertical-align: top;">
+                                                    <span style="display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background-color: transparent; border: 1px dashed #223047; color: #64748B; border-radius: 50%; font-size: 13px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        &#8635;
+                                                    </span>
+                                                </td>
+                                                <td style="padding-left: 12px; vertical-align: top;">
+                                                    <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #E5E7EB;">
+                                                        {{ item.headline }}
+                                                    </h3>
+                                                    <p style="margin: 0 0 6px 0; font-size: 13px; line-height: 19px; color: #94A3B8;">
+                                                        {{ item.teaser }}
+                                                    </p>
+                                                    {% if item.citations %}
+                                                    <p style="margin: 0; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        {% for citation in item.citations %}
+                                                        <a href="{{ citation.url }}" style="color: #22D3EE; text-decoration: none;">{{ citation.label }}</a>{% if not loop.last %} <span style="color: #223047;">&bull;</span> {% endif %}
+                                                        {% endfor %}
+                                                    </p>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% endif %}
+
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- CTA -->
+                    <tr>
+                        <td style="padding: 28px 32px; text-align: center;">
+                            <table role="presentation" style="border-collapse: collapse; margin: 0 auto;">
+                                <tr>
+                                    <td style="border-radius: 8px; background-color: #22D3EE;">
+                                        <a href="{{ issue_url }}"
+                                           target="_blank"
+                                           style="display: inline-block; padding: 14px 28px; font-size: 14px; font-weight: 600; color: #0B0F14; text-decoration: none; border-radius: 8px;">
+                                            Open today's digest
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 16px 0 0 0; font-size: 13px; color: #94A3B8;">
+                                <a href="mailto:?subject=Check%20out%20NoyauNews&body=Daily%20signal%20for%20engineers%3A%20{{ issue_url }}"
+                                   style="color: #22D3EE; text-decoration: none;">
+                                    Forward to a friend &rarr;
+                                </a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Discord CTA -->
+                    {% if discord_invite_url %}
+                    <tr>
+                        <td style="padding: 0 32px 24px 32px;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #111827; border-radius: 12px; border: 1px solid #223047;">
+                                <tr>
+                                    <td style="padding: 20px 24px; text-align: center;">
+                                        <p style="margin: 0 0 6px 0; font-size: 14px; font-weight: 600; color: #E5E7EB;">
+                                            Join the community
+                                        </p>
+                                        <p style="margin: 0 0 14px 0; font-size: 13px; color: #94A3B8;">
+                                            Discuss today's signal with other builders
+                                        </p>
+                                        <a href="{{ discord_invite_url }}"
+                                           target="_blank"
+                                           style="display: inline-block; padding: 10px 20px; font-size: 13px; font-weight: 600; color: #ffffff; background-color: #5865F2; text-decoration: none; border-radius: 6px;">
+                                            Join Discord
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <!-- Social Links -->
+                    <tr>
+                        <td style="padding: 20px 32px 0 32px; text-align: center;">
+                            <p style="margin: 0; font-size: 12px; color: #94A3B8;">
+                                Follow us:
+                                <a href="https://x.com/NoyauNews" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">X</a>
+                                <span style="color: #223047;">&bull;</span>
+                                <a href="https://www.youtube.com/channel/UC8ObkWnKP4UPzi2qku2TlXw" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">YouTube</a>
+                                <span style="color: #223047;">&bull;</span>
+                                <a href="https://discord.gg/YCbuNqFucb" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">Discord</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px 32px; text-align: center;">
+                            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #94A3B8;">
+                                You're receiving this because you subscribed to NoyauNews.<br>
+                                <a href="{{ issue_url }}?unsubscribe=true" style="color: #94A3B8; text-decoration: underline;">Unsubscribe</a>
+                                <span style="color: #223047;"> &bull; </span>
+                                <a href="https://noyau.news" style="color: #94A3B8; text-decoration: underline;">noyau.news</a>
+                            </p>
+                            <p style="margin: 12px 0 0 0; font-size: 11px; color: #223047; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                The kernel brief for builders.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

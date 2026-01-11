@@ -1,0 +1,39 @@
+# Robots.txt for noyau.news
+# A daily engineering digest
+
+User-agent: *
+Allow: /
+Allow: /daily/
+Disallow: /api/
+Disallow: /auth/
+
+# Sitemap location
+Sitemap: https://noyau.news/sitemap.xml
+
+# AI Crawlers - welcome to index our content
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+# Crawl politely
+Crawl-delay: 1

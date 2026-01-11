@@ -1,0 +1,61 @@
+---
+const steps = [
+  {
+    number: '01',
+    title: 'Curate',
+    description: '50+ sources monitored for signal',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />`,
+  },
+  {
+    number: '02',
+    title: 'Rank',
+    description: 'Algorithmically scored for relevance',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />`,
+  },
+  {
+    number: '03',
+    title: 'Deliver',
+    description: '10 items, 8am daily to your inbox',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />`,
+  },
+];
+---
+
+<section class="py-16 sm:py-20 border-y border-border/30">
+  <div class="container">
+    <div class="text-center mb-12">
+      <span class="section-header">How it works</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+      {steps.map((step, index) => (
+        <div
+          class="relative group opacity-0 animate-fade-in-up"
+          style={`animation-delay: ${index * 150}ms`}
+        >
+          {/* Connector line for desktop */}
+          {index < steps.length - 1 && (
+            <div class="hidden md:block absolute top-10 left-[calc(50%+2rem)] right-0 h-px bg-border/50"></div>
+          )}
+
+          <div class="flex flex-col items-center text-center">
+            {/* Icon circle */}
+            <div class="relative mb-4">
+              <div class="w-20 h-20 rounded-full border border-border bg-slate flex items-center justify-center group-hover:border-signal/40 group-hover:bg-signal-muted transition-all duration-smooth">
+                <svg class="w-8 h-8 text-muted group-hover:text-signal transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" set:html={step.icon} />
+              </div>
+              {/* Step number */}
+              <span class="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-ink border border-border flex items-center justify-center font-mono text-micro text-muted">
+                {step.number}
+              </span>
+            </div>
+
+            {/* Content */}
+            <h3 class="text-h2 text-text mb-2">{step.title}</h3>
+            <p class="text-body text-muted max-w-[200px]">{step.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

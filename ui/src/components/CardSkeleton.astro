@@ -1,0 +1,59 @@
+---
+interface Props {
+  count?: number;
+}
+
+const { count = 1 } = Astro.props;
+const skeletons = Array.from({ length: count }, (_, i) => i);
+---
+
+{skeletons.map((_, index) => (
+  <article
+    class="card"
+    style={`animation-delay: ${index * 100}ms`}
+    aria-hidden="true"
+  >
+    {/* Metadata row skeleton */}
+    <div class="flex items-center gap-2 mb-3">
+      <div class="skeleton h-5 w-16 rounded"></div>
+      <div class="skeleton h-4 w-20 rounded"></div>
+    </div>
+
+    {/* Main content skeleton */}
+    <div class="flex items-start gap-4">
+      {/* Rank badge skeleton */}
+      <div class="skeleton w-9 h-9 rounded-lg shrink-0"></div>
+
+      <div class="flex-1 space-y-2">
+        {/* Headline skeleton */}
+        <div class="skeleton h-5 w-full rounded"></div>
+        <div class="skeleton h-5 w-3/4 rounded"></div>
+
+        {/* Teaser skeleton */}
+        <div class="skeleton h-4 w-full rounded mt-3"></div>
+        <div class="skeleton h-4 w-5/6 rounded"></div>
+      </div>
+    </div>
+
+    {/* Takeaway skeleton */}
+    <div class="mt-4 pl-13 space-y-2">
+      <div class="skeleton h-4 w-full rounded"></div>
+      <div class="skeleton h-4 w-4/5 rounded"></div>
+    </div>
+
+    {/* Footer skeleton */}
+    <div class="mt-4 pl-13 flex items-center justify-between">
+      <div class="skeleton h-6 w-24 rounded-full"></div>
+      <div class="flex gap-3">
+        <div class="skeleton h-4 w-16 rounded"></div>
+        <div class="skeleton h-4 w-16 rounded"></div>
+      </div>
+    </div>
+  </article>
+))}
+
+<style>
+  .pl-13 {
+    padding-left: 3.25rem;
+  }
+</style>

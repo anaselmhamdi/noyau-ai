@@ -1,0 +1,38 @@
+---
+interface Props {
+  showNav?: boolean;
+}
+
+const { showNav = true } = Astro.props;
+---
+
+<header class="sticky top-0 z-50 border-b border-border/50 bg-ink/80 backdrop-blur-lg">
+  <div class="container py-4 flex items-center justify-between">
+    {/* Logo */}
+    <a href="/" class="flex items-center gap-2 no-underline group focus-ring rounded-lg">
+      <div class="flex items-center gap-1">
+        <span class="text-muted font-mono text-lg group-hover:text-muted/80 transition-colors">[</span>
+        <span class="w-2.5 h-2.5 bg-signal rounded-full group-hover:shadow-glow transition-shadow"></span>
+        <span class="text-muted font-mono text-lg group-hover:text-muted/80 transition-colors">]</span>
+      </div>
+      <span class="font-semibold text-text tracking-tight group-hover:text-signal transition-colors">
+        Noyau<span class="text-signal">News</span>
+      </span>
+    </a>
+
+    {/* Navigation */}
+    {showNav && (
+      <nav class="flex items-center gap-2 sm:gap-4">
+        <a
+          href="/archives"
+          class="link-subtle text-body px-2 py-1 rounded-lg hover:bg-slate/50 transition-colors"
+        >
+          Archives
+        </a>
+        <a href="/#subscribe" class="btn btn-primary text-body">
+          Subscribe
+        </a>
+      </nav>
+    )}
+  </div>
+</header>

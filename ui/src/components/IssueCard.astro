@@ -1,0 +1,102 @@
+---
+interface Citation {
+  url: string;
+  label: string;
+}
+
+interface Props {
+  rank: number;
+  headline: string;
+  teaser: string;
+  takeaway: string;
+  bullets: string[];
+  citations: Citation[];
+  confidence: 'low' | 'medium' | 'high';
+  topic?: string;
+}
+
+const { rank, headline, teaser, takeaway, bullets, citations, confidence, topic } = Astro.props;
+
+const confidenceLabel = {
+  low: 'Emerging',
+  medium: 'Developing',
+  high: 'High signal',
+}[confidence];
+
+const isHighConfidence = confidence === 'high';
+
+// Extract primary source from first citation
+const primarySource = citations[0]?.label?.split(' ')[0] || '';
+---
+
+<article class="card-interactive group" data-rank={rank}>
+  {/* Metadata row */}
+  {(topic || primarySource) && (
+    <div class="flex items-center gap-2 mb-3">
+      {topic && <span class="tag-chip">{topic}</span>}
+      {topic && primarySource && <span class="text-border">·</span>}
+      {primarySource && <span class="font-mono text-micro text-muted">{primarySource}</span>}
+    </div>
+  )}
+
+  {/* Main content */}
+  <div class="flex items-start gap-4">
+    <span class="rank-badge shrink-0 group-hover:scale-105 transition-transform">
+      {rank}
+    </span>
+    <div class="flex-1 min-w-0">
+      <h2 class="text-h2 text-text group-hover:text-signal transition-colors leading-snug">
+        {headline}
+      </h2>
+      <p class="mt-2 text-body text-muted">{teaser}</p>
+    </div>
+  </div>
+
+  {/* Takeaway */}
+  <div class="mt-4 pl-13">
+    <p class="text-body text-text/90">{takeaway}</p>
+  </div>
+
+  {/* Bullets */}
+  {bullets.length > 0 && (
+    <ul class="mt-3 pl-13 space-y-1.5">
+      {bullets.map((bullet) => (
+        <li class="flex gap-2 text-body text-muted">
+          <span class="text-signal mt-0.5">—</span>
+          <span>{bullet}</span>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {/* Footer row */}
+  <div class="mt-4 pl-13 flex items-center justify-between gap-4">
+    {/* Score pill */}
+    <span class={`score-pill ${isHighConfidence ? 'score-pill-high' : ''}`}>
+      <span class="w-1.5 h-1.5 rounded-full bg-current opacity-60"></span>
+      {confidenceLabel}
+    </span>
+
+    {/* Citations */}
+    {citations.length > 0 && (
+      <div class="flex flex-wrap gap-x-3 gap-y-1">
+        {citations.map((c) => (
+          <a
+            href={c.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="link-subtle text-micro font-mono hover:text-signal"
+          >
+            {c.label}
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+</article>
+
+<style>
+  .pl-13 {
+    padding-left: 3.25rem; /* 52px = 36px badge + 16px gap */
+  }
+</style>

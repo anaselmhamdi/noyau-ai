@@ -1,0 +1,101 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-noyau}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-noyau}
+      POSTGRES_DB: ${POSTGRES_DB:-noyau}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-noyau}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-noyau}:${POSTGRES_PASSWORD:-noyau}@db:5432/${POSTGRES_DB:-noyau}
+    command: alembic upgrade head
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-noyau}:${POSTGRES_PASSWORD:-noyau}@db:5432/${POSTGRES_DB:-noyau}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      BASE_URL: ${BASE_URL:-https://noyau.news}
+      EMAIL_DOMAIN: ${EMAIL_DOMAIN:-noyau.news}
+      DEBUG: ${DEBUG:-false}
+      LOG_DIR: /app/logs
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+      - ./public:/app/public
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public:/srv/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  # Self-hosted Nitter for X/Twitter RSS feeds
+  nitter-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - nitter_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nitter:
+    image: zedeus/nitter:latest
+    platform: linux/amd64  # Required for Apple Silicon
+    restart: unless-stopped
+    depends_on:
+      nitter-redis:
+        condition: service_healthy
+    environment:
+      NITTER_SESSIONS_FILE: /data/sessions.jsonl
+    volumes:
+      - ./nitter/nitter.conf:/src/nitter.conf:ro
+      - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+  nitter_redis:

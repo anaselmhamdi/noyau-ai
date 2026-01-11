@@ -1,0 +1,77 @@
+# Caddyfile for NoyauAI
+# Caddy automatically provisions TLS certificates via Let's Encrypt
+
+{
+    # Global options
+    email admin@noyau.news
+}
+
+noyau.news {
+    # Serve static files for Astro frontend
+    root * /srv/public
+    file_server
+
+    # Proxy API requests to FastAPI backend
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+
+    # Proxy auth requests to FastAPI backend
+    handle /auth/* {
+        reverse_proxy api:8000
+    }
+
+    # Health check endpoint
+    handle /health {
+        reverse_proxy api:8000
+    }
+
+    # Serve static issue JSON files
+    handle /issues/* {
+        root * /srv/public
+        file_server
+    }
+
+    # Fallback: try static files first, then index.html for SPA routing
+    try_files {path} {path}/ /index.html
+
+    # SEO files - cache for 1 hour
+    @seofiles {
+        path /robots.txt /sitemap.xml /feed.xml /llms.txt /llms-full.txt
+    }
+    header @seofiles Cache-Control "public, max-age=3600"
+
+    # Compression
+    encode gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+}
+
+# Development/local configuration (uncomment for local use)
+# :8080 {
+#     root * /srv/public
+#     file_server
+#
+#     handle /api/* {
+#         reverse_proxy api:8000
+#     }
+#
+#     handle /auth/* {
+#         reverse_proxy api:8000
+#     }
+#
+#     try_files {path} {path}/ /index.html
+# }
