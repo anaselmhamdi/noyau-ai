@@ -47,7 +47,8 @@ class ClusterScorer:
         0.25 * velocity_pctl +
         0.25 * echo_scaled +
         practical_boost -
-        already_seen_penalty
+        already_seen_penalty -
+        source_threshold_penalty
     )
 
     If viral: score *= viral_multiplier (default 1.35)
@@ -148,6 +149,42 @@ class ClusterScorer:
 
         return 0.0
 
+    def compute_source_threshold_penalty(self, items: list[ContentItem]) -> float:
+        """
+        Apply penalty for items that don't meet source-specific thresholds.
+
+        Currently supports dev.to min_reactions threshold.
+        """
+        source_thresholds = self.config.ranking.source_thresholds
+
+        for item in items:
+            source = item.source.value
+            if source not in source_thresholds:
+                continue
+
+            threshold_config = source_thresholds[source]
+            if threshold_config.min_reactions <= 0:
+                continue
+
+            # Get reactions from latest metrics snapshot
+            if not item.metrics_snapshots:
+                # No metrics - apply penalty
+                return threshold_config.low_engagement_penalty
+
+            latest = item.metrics_snapshots[-1]
+            reactions = latest.metrics_json.get("reactions", 0)
+
+            if reactions < threshold_config.min_reactions:
+                logger.bind(
+                    source=source,
+                    reactions=reactions,
+                    min_required=threshold_config.min_reactions,
+                    url=item.url,
+                ).debug("source_threshold_penalty_applied")
+                return threshold_config.low_engagement_penalty
+
+        return 0.0
+
     def is_viral(
         self,
         engagement_pctl: float,
@@ -201,6 +238,9 @@ class ClusterScorer:
             else 0.0
         )
 
+        # Source-specific threshold penalty (e.g., dev.to low reactions)
+        source_threshold_penalty = self.compute_source_threshold_penalty(items)
+
         # Compute final score
         weights = self.config.ranking.weights
         score = (
@@ -210,6 +250,7 @@ class ClusterScorer:
             + weights["echo"] * echo_scaled
             + practical_boost
             - already_seen_penalty
+            - source_threshold_penalty
         )
 
         # Viral boost
@@ -228,6 +269,7 @@ class ClusterScorer:
             "echo_scaled": echo_scaled,
             "practical_boost": practical_boost,
             "already_seen_penalty": already_seen_penalty,
+            "source_threshold_penalty": source_threshold_penalty,
             "is_viral": is_viral,
         }
 

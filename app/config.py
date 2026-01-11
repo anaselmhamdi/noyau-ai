@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     twitter_access_token_secret: str = Field(default="")
 
 
+class SourceThresholdConfig:
+    """Source-specific threshold configuration."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.min_reactions: int = data.get("min_reactions", 0)
+        self.low_engagement_penalty: float = data.get("low_engagement_penalty", 0.0)
+
+
 class RankingConfig:
     """Ranking configuration from config.yml."""
 
@@ -101,6 +109,10 @@ class RankingConfig:
         )
         self.practical_boost_value: float = data.get("practical_boost_value", 0.15)
         self.already_seen_penalty: float = data.get("already_seen_penalty", 0.30)
+        self.source_thresholds: dict[str, SourceThresholdConfig] = {
+            source: SourceThresholdConfig(threshold_data)
+            for source, threshold_data in data.get("source_thresholds", {}).items()
+        }
 
 
 class DigestConfig:

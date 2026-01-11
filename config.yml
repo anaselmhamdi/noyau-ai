@@ -52,6 +52,10 @@ ranking:
     - "performance"
   practical_boost_value: 0.15
   already_seen_penalty: 0.30
+  source_thresholds:
+    devto:
+      min_reactions: 20           # Minimum reactions to avoid penalty
+      low_engagement_penalty: 0.25  # Score reduction when below threshold
 
 seeds:
   # RSS feeds for cloud providers, changelogs, kubernetes, arXiv
@@ -179,7 +183,7 @@ twitter:
 
 # Video generation for short-form content (YouTube Shorts, etc.)
 video:
-  enabled: false  # Set to true once Pexels + YouTube credentials are configured
+  enabled: true  # Set to true once Pexels + YouTube credentials are configured
   count: 3  # Number of videos to generate daily (top N stories)
   output_dir: "./output/videos"  # Directory for generated videos
 
