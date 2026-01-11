@@ -1,0 +1,143 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { generateBreadcrumbSchema } from '../lib/schema';
+
+export const prerender = false;
+
+interface IssuePreview {
+  date: string;
+  item_count: number;
+  top_headlines: string[];
+}
+
+let issues: IssuePreview[] = [];
+let error = '';
+
+try {
+  const apiUrl = process.env.API_URL || '';
+  const res = await fetch(`${apiUrl}/api/issues/dates`);
+  if (res.ok) {
+    const data = await res.json();
+    const dates = (data.dates || []).slice(0, 7);
+
+    // Fetch preview data for each date
+    issues = await Promise.all(
+      dates.map(async (date: string) => {
+        try {
+          const issueRes = await fetch(`${apiUrl}/api/issues/${date}?view=public`);
+          if (issueRes.ok) {
+            const issue = await issueRes.json();
+            return {
+              date,
+              item_count: issue.items?.length || 0,
+              top_headlines: (issue.items || []).slice(0, 3).map((item: any) => item.headline),
+            };
+          }
+        } catch {}
+        return { date, item_count: 0, top_headlines: [] };
+      })
+    );
+  }
+} catch (e) {
+  error = 'Failed to load archives';
+}
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+const breadcrumbSchema = generateBreadcrumbSchema([
+  { name: 'Home', url: 'https://noyau.news' },
+  { name: 'Archives', url: 'https://noyau.news/archives' },
+]);
+---
+
+<BaseLayout
+  title="Archives - noyau"
+  description="Browse past daily engineering digests. 7 days of curated tech news."
+  canonicalUrl="https://noyau.news/archives"
+>
+  <Fragment slot="structured-data">
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <Header slot="header" />
+
+  <section class="py-12 sm:py-16">
+    <div class="container max-w-2xl">
+      <header class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <a href="/" class="text-muted hover:text-signal transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </a>
+          <h1 class="text-h1 text-text">Archives</h1>
+        </div>
+        <p class="text-body text-muted">Past 7 days of daily digests</p>
+      </header>
+
+      {error ? (
+        <div class="card text-center py-12">
+          <p class="text-muted">{error}</p>
+        </div>
+      ) : issues.length === 0 ? (
+        <div class="card text-center py-12">
+          <p class="text-muted">No archives available yet.</p>
+        </div>
+      ) : (
+        <div class="space-y-4">
+          {issues.map((issue, index) => (
+            <a
+              href={`/daily/${issue.date}`}
+              class="card block hover:bg-slate/70 transition-colors group opacity-0 animate-fade-in-up"
+              style={`animation-delay: ${index * 75}ms`}
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-3 mb-2">
+                    <time datetime={issue.date} class="font-mono text-body text-text group-hover:text-signal transition-colors">
+                      {formatDate(issue.date)}
+                    </time>
+                    {index === 0 && (
+                      <span class="tag-chip bg-signal-muted text-signal">Latest</span>
+                    )}
+                  </div>
+                  {issue.item_count > 0 ? (
+                    <p class="text-micro text-muted line-clamp-2">
+                      {issue.top_headlines.join(' · ')}
+                    </p>
+                  ) : (
+                    <p class="text-micro text-muted italic">No items</p>
+                  )}
+                </div>
+                <div class="flex items-center gap-2 text-muted">
+                  <span class="font-mono text-micro">{issue.item_count} items</span>
+                  <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div class="mt-12 text-center">
+        <a href="/" class="text-micro text-muted hover:text-signal transition-colors">
+          Back to home
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>

@@ -18,7 +18,8 @@ const { date } = Astro.params;
 
 const apiUrl = process.env.API_URL || '';
 const res = await fetch(`${apiUrl}/api/issues/${date}?view=public`);
-const issue = await res.json();
+const issueExists = res.ok;
+const issue = issueExists ? await res.json() : { items: [], missed_items: [] };
 
 const formattedDate = new Date(date!).toLocaleDateString('en-US', {
   weekday: 'short',
@@ -32,6 +33,7 @@ const missedItems = issue.missed_items || [];
 const hasLockedItems = lockedItems.length > 0;
 const hasMissedItems = missedItems.length > 0;
 const isLatest = issue.is_latest || false;
+const hasNoContent = freeItems.length === 0 && lockedItems.length === 0;
 
 // SEO: Dynamic description from top headlines
 const topHeadlines = issue.items?.slice(0, 3).map((item: any) => item.headline) || [];
@@ -92,6 +94,22 @@ const breadcrumbSchema = generateBreadcrumbSchema([
 
       {/* Issue items */}
       <div class="space-y-4" id="issue-items">
+        {hasNoContent && (
+          <div class="card text-center py-12">
+            <div class="flex items-center justify-center gap-2 mb-4">
+              <span class="w-2 h-2 rounded-full bg-warning animate-pulse"></span>
+              <span class="text-micro font-mono text-muted">{issueExists ? 'Empty digest' : 'Not found'}</span>
+            </div>
+            <p class="text-body text-muted mb-6">
+              {issueExists
+                ? "This digest doesn't have any items. It may still be processing or there wasn't enough content for this day."
+                : "No digest was published for this date."}
+            </p>
+            <a href="/archives" class="text-signal hover:text-signal/80 transition-colors text-micro font-mono">
+              View other digests →
+            </a>
+          </div>
+        )}
         {freeItems.map((item: any, index: number) => (
           <div
             class="opacity-0 animate-fade-in-up"

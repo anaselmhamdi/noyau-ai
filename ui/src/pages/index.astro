@@ -120,7 +120,18 @@ const webSiteSchema = generateWebSiteSchema();
     ) : (
       <section class="py-16 sm:py-20">
         <div class="container text-center">
-          <p class="text-muted">Loading latest digest...</p>
+          <div class="card py-12 max-w-lg mx-auto">
+            <div class="flex items-center justify-center gap-2 mb-4">
+              <span class="w-2 h-2 rounded-full bg-warning animate-pulse"></span>
+              <span class="text-micro font-mono text-muted">No digest yet</span>
+            </div>
+            <p class="text-body text-muted mb-6">
+              Today's digest is being prepared. Check back soon or subscribe to get it delivered.
+            </p>
+            <a href="/archives" class="text-signal hover:text-signal/80 transition-colors text-micro font-mono">
+              View past digests →
+            </a>
+          </div>
         </div>
       </section>
     )}
