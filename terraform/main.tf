@@ -126,6 +126,20 @@ resource "hcloud_server" "main" {
     s3_access_key_id     = var.s3_access_key_id
     s3_secret_access_key = var.s3_secret_access_key
     s3_endpoint_url      = var.s3_endpoint_url
+    s3_public_url        = var.s3_public_url
+
+    # TikTok
+    tiktok_client_key    = var.tiktok_client_key
+    tiktok_client_secret = var.tiktok_client_secret
+    tiktok_access_token  = var.tiktok_access_token
+    tiktok_refresh_token = var.tiktok_refresh_token
+    tiktok_redirect_uri  = var.tiktok_redirect_uri
+
+    # Instagram
+    instagram_app_id              = var.instagram_app_id
+    instagram_app_secret          = var.instagram_app_secret
+    instagram_business_account_id = var.instagram_business_account_id
+    instagram_access_token        = var.instagram_access_token
   })
 
   labels = {

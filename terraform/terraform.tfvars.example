@@ -164,3 +164,43 @@ s3_secret_access_key = ""
 
 # S3-compatible endpoint URL (leave empty for standard AWS S3)
 s3_endpoint_url = ""
+
+# Public URL for R2/S3 (required for Instagram/TikTok - they fetch videos from public URLs)
+# For R2: Enable in Cloudflare Dashboard → R2 → Bucket → Settings → Public Access
+# Example: https://pub-xxx.r2.dev
+s3_public_url = ""
+
+# =============================================================================
+# TikTok Content Posting API (Optional)
+# =============================================================================
+
+# Setup steps:
+# 1. Go to https://developers.tiktok.com and create a developer account
+# 2. Create an app and select "Web" platform
+# 3. Add redirect URIs:
+#    - Production: https://noyau.news/auth/tiktok/callback
+# 4. Apply for "Content Posting API" scope (video.publish)
+# 5. Once approved, copy Client Key and Secret from app settings
+# 6. Get tokens by visiting: https://noyau.news/auth/tiktok/authorize
+tiktok_client_key    = ""
+tiktok_client_secret = ""
+tiktok_access_token  = ""
+tiktok_refresh_token = ""
+tiktok_redirect_uri  = "https://noyau.news/auth/tiktok/callback"
+
+# =============================================================================
+# Instagram Graph API (Optional)
+# =============================================================================
+
+# Setup steps:
+# 1. Convert Instagram account to Business/Creator (Settings → Account → Switch to Professional)
+# 2. Create a Facebook Page and link it to your Instagram account
+# 3. Go to https://developers.facebook.com and create a Business app
+# 4. Add "Instagram Graph API" product to your app
+# 5. Create System User in Meta Business Suite → Business Settings → Users → System Users
+# 6. Assign Page and Instagram assets to System User
+# 7. Generate token for System User with: instagram_content_publish, instagram_basic, pages_read_engagement
+instagram_app_id              = ""
+instagram_app_secret          = ""
+instagram_business_account_id = ""
+instagram_access_token        = ""

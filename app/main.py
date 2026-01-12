@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app.api.router import api_router
 from app.config import get_settings
@@ -49,3 +50,9 @@ app.include_router(api_router)
 async def health_check() -> dict[str, str]:
     """Health check endpoint for load balancers."""
     return {"status": "healthy"}
+
+
+@app.get("/tiktok5jv3QAzhtw6g0bwbctXEnI0OoLYipkiu.txt")
+async def tiktok_verification() -> PlainTextResponse:
+    """TikTok domain verification file."""
+    return PlainTextResponse("tiktok-developers-site-verification=5jv3QAzhtw6g0bwbctXEnI0OoLYipkiu")

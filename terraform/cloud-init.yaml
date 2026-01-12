@@ -141,6 +141,24 @@ write_files:
       S3_ACCESS_KEY_ID=${s3_access_key_id}
       S3_SECRET_ACCESS_KEY=${s3_secret_access_key}
       S3_ENDPOINT_URL=${s3_endpoint_url}
+      S3_PUBLIC_URL=${s3_public_url}
+
+      # =============================================================================
+      # TikTok Content Posting API
+      # =============================================================================
+      TIKTOK_CLIENT_KEY=${tiktok_client_key}
+      TIKTOK_CLIENT_SECRET=${tiktok_client_secret}
+      TIKTOK_ACCESS_TOKEN=${tiktok_access_token}
+      TIKTOK_REFRESH_TOKEN=${tiktok_refresh_token}
+      TIKTOK_REDIRECT_URI=${tiktok_redirect_uri}
+
+      # =============================================================================
+      # Instagram Graph API
+      # =============================================================================
+      INSTAGRAM_APP_ID=${instagram_app_id}
+      INSTAGRAM_APP_SECRET=${instagram_app_secret}
+      INSTAGRAM_BUSINESS_ACCOUNT_ID=${instagram_business_account_id}
+      INSTAGRAM_ACCESS_TOKEN=${instagram_access_token}
 
   # Docker compose for production (uses Neon, no local db)
   - path: /opt/noyau/docker-compose.yml

@@ -29,12 +29,33 @@ from app.core.logging import get_logger, setup_logging
 from app.models.cluster import Cluster, ClusterSummary
 from app.models.user import User
 from app.pipeline.issue_builder import build_daily_issue, get_missed_from_yesterday
-from app.services.discord_service import send_discord_digest
+from app.services.discord_service import send_discord_digest, send_discord_error
 from app.services.email_service import send_daily_digest
+from app.services.instagram_service import send_instagram_reels
+from app.services.tiktok_service import send_tiktok_videos
 from app.services.twitter_service import send_twitter_digest
 from app.video.orchestrator import generate_videos_for_issue
 
 logger = get_logger(__name__)
+
+
+async def _notify_dispatch_error(channel: str, error: Exception) -> None:
+    """
+    Safely attempt to send a Discord error notification for dispatch failures.
+
+    This function never raises - if Discord notification fails, it just logs.
+    """
+    try:
+        await send_discord_error(
+            title=f"{channel} Dispatch Failed",
+            error=str(error),
+            context={"channel": channel, "job": "daily"},
+        )
+    except Exception as notify_error:
+        # Don't let error notification failures propagate
+        logger.bind(channel=channel, notify_error=str(notify_error)).warning(
+            "failed_to_send_dispatch_error_notification"
+        )
 
 
 async def get_issue_items(issue_date: date) -> list[dict]:
@@ -166,33 +187,55 @@ async def main(dry_run: bool = False) -> None:
             # Fetch items for distribution
             items = await get_issue_items(issue_date)
 
-            # Send emails
-            sent_count = await send_digest_emails(issue_date, items)
-            logger.bind(count=sent_count).info("emails_sent")
-
             # Get config for channel settings
             config = get_config()
 
-            # Post to Discord
+            # Track dispatch results for summary
+            dispatch_results: dict[str, bool] = {}
+
+            # =====================================================================
+            # DISPATCH: Email
+            # =====================================================================
+            try:
+                sent_count = await send_digest_emails(issue_date, items)
+                logger.bind(count=sent_count).info("emails_sent")
+                dispatch_results["email"] = True
+            except Exception as e:
+                logger.bind(error=str(e)).error("email_send_failed")
+                dispatch_results["email"] = False
+                await _notify_dispatch_error("Email", e)
+
+            # =====================================================================
+            # DISPATCH: Discord
+            # =====================================================================
             try:
                 discord_sent = await send_discord_digest(issue_date, items)
                 if discord_sent:
                     logger.info("discord_digest_sent")
+                dispatch_results["discord"] = discord_sent
             except Exception as e:
-                # Don't fail the job for Discord errors
                 logger.bind(error=str(e)).error("discord_send_failed")
+                dispatch_results["discord"] = False
+                await _notify_dispatch_error("Discord", e)
 
-            # Post to Twitter
+            # =====================================================================
+            # DISPATCH: Twitter
+            # =====================================================================
             if config.twitter.enabled:
                 try:
                     twitter_sent = await send_twitter_digest(issue_date, items)
                     if twitter_sent:
                         logger.info("twitter_digest_sent")
+                    dispatch_results["twitter"] = twitter_sent
                 except Exception as e:
-                    # Don't fail the job for Twitter errors
                     logger.bind(error=str(e)).error("twitter_send_failed")
+                    dispatch_results["twitter"] = False
+                    await _notify_dispatch_error("Twitter", e)
 
-            # Generate videos for top stories (if enabled)
+            # =====================================================================
+            # DISPATCH: Video Generation (YouTube)
+            # =====================================================================
+            video_results = []
             if config.video.enabled:
                 try:
                     ranked_with_summaries = result.get("ranked_with_summaries", [])
@@ -202,15 +245,61 @@ async def main(dry_run: bool = False) -> None:
                         db=db,
                         dry_run=False,
                     )
+                    videos_published = sum(1 for v in video_results if v.youtube_video_id)
                     logger.bind(
                         videos_generated=len(video_results),
-                        videos_published=sum(1 for v in video_results if v.youtube_video_id),
+                        videos_published=videos_published,
                     ).info("videos_generated")
+                    dispatch_results["youtube"] = videos_published > 0
                 except Exception as e:
-                    # Don't fail the job for video generation errors
                     logger.bind(error=str(e)).error("video_generation_failed")
+                    dispatch_results["youtube"] = False
+                    await _notify_dispatch_error("YouTube/Video", e)
 
-            logger.info("daily_job_completed")
+            # =====================================================================
+            # DISPATCH: TikTok
+            # =====================================================================
+            if config.tiktok.enabled and video_results:
+                try:
+                    videos_for_social = [
+                        {"s3_url": v.s3_url, "youtube_url": v.youtube_url}
+                        for v in video_results
+                        if v.s3_url
+                    ]
+                    tiktok_result = await send_tiktok_videos(issue_date, videos_for_social, items)
+                    if tiktok_result.success:
+                        logger.bind(message=tiktok_result.message).info("tiktok_videos_posted")
+                    dispatch_results["tiktok"] = tiktok_result.success
+                except Exception as e:
+                    logger.bind(error=str(e)).error("tiktok_send_failed")
+                    dispatch_results["tiktok"] = False
+                    await _notify_dispatch_error("TikTok", e)
+
+            # =====================================================================
+            # DISPATCH: Instagram Reels
+            # =====================================================================
+            if config.instagram.enabled and video_results:
+                try:
+                    videos_for_social = [
+                        {"s3_url": v.s3_url, "youtube_url": v.youtube_url}
+                        for v in video_results
+                        if v.s3_url
+                    ]
+                    instagram_result = await send_instagram_reels(
+                        issue_date, videos_for_social, items
+                    )
+                    if instagram_result.success:
+                        logger.bind(message=instagram_result.message).info("instagram_reels_posted")
+                    dispatch_results["instagram"] = instagram_result.success
+                except Exception as e:
+                    logger.bind(error=str(e)).error("instagram_send_failed")
+                    dispatch_results["instagram"] = False
+                    await _notify_dispatch_error("Instagram", e)
+
+            # Log dispatch summary
+            successful = [k for k, v in dispatch_results.items() if v]
+            failed = [k for k, v in dispatch_results.items() if not v]
+            logger.bind(successful=successful, failed=failed).info("daily_job_completed")
 
         except Exception as e:
             logger.bind(error=str(e)).error("daily_job_failed")

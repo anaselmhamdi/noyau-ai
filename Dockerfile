@@ -23,7 +23,7 @@ RUN adduser --disabled-password --gecos "" appuser && \
     chown -R appuser:appuser /app
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
 
 # Switch to non-root user for dependency installation
 USER appuser

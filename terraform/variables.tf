@@ -324,3 +324,76 @@ variable "s3_endpoint_url" {
   type        = string
   default     = ""
 }
+
+variable "s3_public_url" {
+  description = "Public URL for R2/S3 bucket (required for Instagram/TikTok)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# TikTok Content Posting API
+# =============================================================================
+
+variable "tiktok_client_key" {
+  description = "TikTok app client key"
+  type        = string
+  default     = ""
+}
+
+variable "tiktok_client_secret" {
+  description = "TikTok app client secret"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tiktok_access_token" {
+  description = "TikTok OAuth access token"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tiktok_refresh_token" {
+  description = "TikTok OAuth refresh token"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tiktok_redirect_uri" {
+  description = "TikTok OAuth redirect URI"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# Instagram Graph API
+# =============================================================================
+
+variable "instagram_app_id" {
+  description = "Facebook/Instagram app ID"
+  type        = string
+  default     = ""
+}
+
+variable "instagram_app_secret" {
+  description = "Facebook/Instagram app secret"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "instagram_business_account_id" {
+  description = "Instagram Business Account ID"
+  type        = string
+  default     = ""
+}
+
+variable "instagram_access_token" {
+  description = "Instagram Graph API access token"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

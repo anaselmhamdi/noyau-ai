@@ -23,6 +23,7 @@ from app.services.discord_service import send_discord_error
 from app.services.email_service import send_magic_link_email
 from app.services.email_validation import ValidationStatus, get_email_validator
 from app.services.posthog_client import track_session_started, track_signup_completed
+from app.services.tiktok_service import build_auth_url, exchange_code_for_tokens
 
 logger = get_logger(__name__)
 
@@ -256,3 +257,82 @@ async def resubscribe(
         logger.bind(email=email).info("user_resubscribed")
 
     return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+
+# -----------------------------------------------------------------------------
+# TikTok OAuth (for initial token setup)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/tiktok/tiktok5jv3QAzhtw6g0bwbctXEnI0OoLYipkiu.txt")
+async def tiktok_verification_auth_path() -> str:
+    """TikTok domain verification file for /auth/tiktok/ prefix."""
+    return "tiktok-developers-site-verification=5jv3QAzhtw6g0bwbctXEnI0OoLYipkiu"
+
+
+@router.get("/tiktok/authorize")
+async def tiktok_authorize() -> RedirectResponse:
+    """
+    Redirect to TikTok OAuth authorization page.
+
+    This is a one-time setup flow to get the initial access/refresh tokens.
+    Visit this endpoint in a browser to start the OAuth flow.
+    """
+    import secrets
+
+    state = secrets.token_urlsafe(16)
+    auth_url = build_auth_url(state=state)
+
+    logger.info("tiktok_oauth_started")
+    return RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/tiktok/callback")
+async def tiktok_callback(
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
+) -> dict:
+    """
+    Handle TikTok OAuth callback.
+
+    Exchanges the authorization code for access/refresh tokens.
+    Returns the tokens so you can save them to your .env file.
+    """
+    if error:
+        logger.bind(error=error, description=error_description).error("tiktok_oauth_error")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"TikTok OAuth error: {error_description or error}",
+        )
+
+    if not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No authorization code received",
+        )
+
+    # Exchange code for tokens
+    tokens = await exchange_code_for_tokens(code)
+
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to exchange code for tokens",
+        )
+
+    logger.bind(open_id=tokens.open_id).info("tiktok_oauth_completed")
+
+    # Return tokens for manual configuration
+    # In production, you'd store these securely
+    return {
+        "message": "TikTok OAuth successful! Save these to your .env file:",
+        "tokens": {
+            "TIKTOK_ACCESS_TOKEN": tokens.access_token,
+            "TIKTOK_REFRESH_TOKEN": tokens.refresh_token,
+            "TIKTOK_OPEN_ID": tokens.open_id,
+        },
+        "expires_in_seconds": tokens.expires_in,
+        "note": "Access token expires, but refresh token is long-lived. Store TIKTOK_REFRESH_TOKEN in .env",
+    }

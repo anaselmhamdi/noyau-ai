@@ -289,6 +289,44 @@ twitter:
   retry_delay_seconds: 5
   max_retries: 3
 
+# TikTok Content Posting API
+# Uses OAuth 2.0 for authentication
+# Credentials configured via environment variables (see .env.example)
+# Initial setup: visit /api/auth/tiktok/authorize to get tokens
+tiktok:
+  enabled: false  # Set to true once API credentials are configured
+  videos_per_day: 1  # Number of videos to post daily (top N)
+  # Sandbox mode requires SELF_ONLY; change to PUBLIC_TO_EVERYONE after TikTok app approval
+  privacy_level: "SELF_ONLY"  # PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY
+  disable_duet: false
+  disable_comment: false
+  disable_stitch: false
+  include_hashtags: true
+  default_hashtags:
+    - "technews"
+    - "programming"
+    - "developer"
+    - "coding"
+    - "noyau"
+  redirect_uri: "https://noyau.news/auth/tiktok/callback"
+  retry_delay_seconds: 5
+  max_retries: 3
+
+# Instagram Reels via Graph API
+# Uses Facebook's Instagram Graph API to post Reels
+# Credentials configured via environment variables (see .env.example)
+instagram:
+  enabled: true  # Set to true once API credentials are configured
+  reels_per_day: 1  # Number of Reels to post daily (top N)
+  include_hashtags: true
+  default_hashtags:
+    - "technews"
+    - "programming"
+    - "developer"
+    - "coding"
+    - "tech"
+    - "reels"
+
 # Video generation for short-form content (YouTube Shorts, etc.)
 video:
   enabled: true  # Set to true once Pexels + YouTube credentials are configured

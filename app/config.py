@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     s3_access_key_id: str = Field(default="")
     s3_secret_access_key: str = Field(default="")
     s3_endpoint_url: str = Field(default="")  # For S3-compatible storage (MinIO, R2, etc.)
+    s3_public_url: str = Field(default="")  # Public URL for social media (Instagram/TikTok)
 
     # Twitter/Nitter credentials for session token generation
     twitter_username: str = Field(default="")
@@ -79,6 +80,19 @@ class Settings(BaseSettings):
     twitter_api_secret: str = Field(default="")
     twitter_access_token: str = Field(default="")
     twitter_access_token_secret: str = Field(default="")
+
+    # TikTok Content Posting API credentials
+    tiktok_client_key: str = Field(default="")
+    tiktok_client_secret: str = Field(default="")
+    tiktok_access_token: str = Field(default="")
+    tiktok_refresh_token: str = Field(default="")
+    tiktok_redirect_uri: str = Field(default="")
+
+    # Instagram Graph API credentials
+    instagram_app_id: str = Field(default="")
+    instagram_app_secret: str = Field(default="")
+    instagram_business_account_id: str = Field(default="")
+    instagram_access_token: str = Field(default="")
 
 
 class SourceThresholdConfig:
@@ -196,6 +210,56 @@ class TwitterConfig:
         self.access_token_secret: str = settings.twitter_access_token_secret
 
 
+class TikTokConfig:
+    """TikTok configuration from config.yml and environment."""
+
+    def __init__(self, data: dict[str, Any], settings: "Settings") -> None:
+        self.enabled: bool = data.get("enabled", False)
+        self.videos_per_day: int = data.get("videos_per_day", 1)
+        self.privacy_level: str = data.get("privacy_level", "PUBLIC_TO_EVERYONE")
+        self.disable_duet: bool = data.get("disable_duet", False)
+        self.disable_comment: bool = data.get("disable_comment", False)
+        self.disable_stitch: bool = data.get("disable_stitch", False)
+        self.include_hashtags: bool = data.get("include_hashtags", True)
+        self.default_hashtags: list[str] = data.get(
+            "default_hashtags",
+            ["technews", "programming", "developer", "noyau"],
+        )
+        self.retry_delay_seconds: int = data.get("retry_delay_seconds", 5)
+        self.max_retries: int = data.get("max_retries", 3)
+
+        # Redirect URI for OAuth (env takes precedence over config.yml)
+        self.redirect_uri: str = settings.tiktok_redirect_uri or data.get(
+            "redirect_uri",
+            "https://noyau.news/auth/tiktok/callback",
+        )
+
+        # Credentials from environment
+        self.client_key: str = settings.tiktok_client_key
+        self.client_secret: str = settings.tiktok_client_secret
+        self.access_token: str = settings.tiktok_access_token
+        self.refresh_token: str = settings.tiktok_refresh_token
+
+
+class InstagramConfig:
+    """Instagram configuration from config.yml and environment."""
+
+    def __init__(self, data: dict[str, Any], settings: "Settings") -> None:
+        self.enabled: bool = data.get("enabled", False)
+        self.reels_per_day: int = data.get("reels_per_day", 1)
+        self.include_hashtags: bool = data.get("include_hashtags", True)
+        self.default_hashtags: list[str] = data.get(
+            "default_hashtags",
+            ["technews", "programming", "developer", "reels", "tech"],
+        )
+
+        # Credentials from environment
+        self.app_id: str = settings.instagram_app_id
+        self.app_secret: str = settings.instagram_app_secret
+        self.business_account_id: str = settings.instagram_business_account_id
+        self.access_token: str = settings.instagram_access_token
+
+
 class VideoFormatConfig:
     """Video format settings."""
 
@@ -279,6 +343,8 @@ class AppConfig:
         self.nitter = NitterConfig(data.get("nitter", {}))
         self.discord = DiscordConfig(data.get("discord", {}), self.settings)
         self.twitter = TwitterConfig(data.get("twitter", {}), self.settings)
+        self.tiktok = TikTokConfig(data.get("tiktok", {}), self.settings)
+        self.instagram = InstagramConfig(data.get("instagram", {}), self.settings)
         self.video = VideoConfig(data.get("video", {}), self.settings)
 
 

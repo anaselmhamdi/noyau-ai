@@ -70,6 +70,10 @@ class S3StorageService:
 
     def _build_public_url(self, key: str) -> str:
         """Build a public URL for an S3 object."""
+        settings = get_settings()
+        # Use configured public URL if available (required for social media platforms)
+        if settings.s3_public_url:
+            return f"{settings.s3_public_url.rstrip('/')}/{key}"
         if self.endpoint_url:
             return f"{self.endpoint_url}/{self.bucket_name}/{key}"
         return f"https://{self.bucket_name}.s3.{self.region}.amazonaws.com/{key}"
