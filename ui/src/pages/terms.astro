@@ -1,0 +1,155 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { generateBreadcrumbSchema } from '../lib/schema';
+
+const breadcrumbSchema = generateBreadcrumbSchema([
+  { name: 'Home', url: 'https://noyau.news' },
+  { name: 'Terms of Service', url: 'https://noyau.news/terms' },
+]);
+
+const lastUpdated = 'January 12, 2026';
+---
+
+<BaseLayout
+  title="Terms of Service - noyau"
+  description="Terms of Service for noyau.news, the daily engineering digest."
+  canonicalUrl="https://noyau.news/terms"
+>
+  <Fragment slot="structured-data">
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <Header slot="header" />
+
+  <section class="py-12 sm:py-16">
+    <div class="container max-w-2xl">
+      <header class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <a href="/" class="text-muted hover:text-signal transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </a>
+          <h1 class="text-h1 text-text">Terms of Service</h1>
+        </div>
+        <p class="text-micro text-muted">Last updated: {lastUpdated}</p>
+      </header>
+
+      <div class="space-y-8 text-body text-muted">
+        <section>
+          <h2 class="text-h2 text-text mb-3">1. Service Description</h2>
+          <p>
+            noyau.news ("noyau", "we", "our", "us") provides a daily curated digest of technology and engineering news.
+            Our service aggregates content from public sources, processes it using AI technology, and delivers a
+            summarized digest to subscribers via email and our website.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">2. Acceptance of Terms</h2>
+          <p>
+            By accessing or using noyau.news, you agree to be bound by these Terms of Service. If you do not agree
+            to these terms, please do not use our service.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">3. User Accounts</h2>
+          <p class="mb-2">
+            To access certain features, you may need to create an account using your email address. You agree to:
+          </p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li>Provide accurate and current information</li>
+            <li>Maintain the security of your account credentials</li>
+            <li>Accept responsibility for all activities under your account</li>
+            <li>Notify us immediately of any unauthorized access</li>
+          </ul>
+          <p class="mt-2">
+            We use passwordless authentication via magic links sent to your email address.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">4. Content and Intellectual Property</h2>
+          <p class="mb-2">
+            Our digest content is aggregated from publicly available sources including RSS feeds, social media,
+            and developer platforms. We use AI technology to summarize and distill this content.
+          </p>
+          <p class="mb-2">
+            Original content created by noyau (including summaries, analysis, and website design) is protected
+            by copyright. You may share our content for personal, non-commercial purposes with attribution.
+          </p>
+          <p>
+            We respect the intellectual property rights of content creators and link back to original sources.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">5. Acceptable Use</h2>
+          <p class="mb-2">You agree not to:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li>Use automated systems to access the service without permission</li>
+            <li>Attempt to interfere with or disrupt the service</li>
+            <li>Use the service for any unlawful purpose</li>
+            <li>Redistribute our content commercially without authorization</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">6. Disclaimer of Warranties</h2>
+          <p>
+            The service is provided "as is" without warranties of any kind, either express or implied. We do not
+            guarantee the accuracy, completeness, or reliability of any content. Technology news and information
+            may become outdated quickly, and you should verify information from original sources for critical decisions.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">7. Limitation of Liability</h2>
+          <p>
+            To the maximum extent permitted by law, noyau shall not be liable for any indirect, incidental,
+            special, consequential, or punitive damages arising from your use of the service, including but
+            not limited to loss of data, business opportunities, or profits.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">8. Termination</h2>
+          <p>
+            We reserve the right to suspend or terminate your access to the service at any time for any reason.
+            You may also terminate your account at any time by unsubscribing from our newsletter and discontinuing
+            use of the service.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">9. Changes to Terms</h2>
+          <p>
+            We may update these Terms of Service from time to time. We will notify users of significant changes
+            via email or through a notice on our website. Continued use of the service after changes constitutes
+            acceptance of the updated terms.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">10. Contact</h2>
+          <p>
+            For questions about these Terms of Service, please contact us through our
+            <a href="https://discord.gg/YCbuNqFucb" class="link-accent" target="_blank" rel="noopener noreferrer">Discord community</a>
+            or via <a href="https://x.com/NoyauNews" class="link-accent" target="_blank" rel="noopener noreferrer">X/Twitter</a>.
+          </p>
+        </section>
+      </div>
+
+      <div class="mt-12 text-center">
+        <a href="/" class="text-micro text-muted hover:text-signal transition-colors">
+          Back to home
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>

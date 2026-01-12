@@ -1,0 +1,187 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { generateBreadcrumbSchema } from '../lib/schema';
+
+const breadcrumbSchema = generateBreadcrumbSchema([
+  { name: 'Home', url: 'https://noyau.news' },
+  { name: 'Privacy Policy', url: 'https://noyau.news/privacy' },
+]);
+
+const lastUpdated = 'January 12, 2026';
+---
+
+<BaseLayout
+  title="Privacy Policy - noyau"
+  description="Privacy Policy for noyau.news. Learn how we collect, use, and protect your data."
+  canonicalUrl="https://noyau.news/privacy"
+>
+  <Fragment slot="structured-data">
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <Header slot="header" />
+
+  <section class="py-12 sm:py-16">
+    <div class="container max-w-2xl">
+      <header class="mb-10">
+        <div class="flex items-center gap-3 mb-4">
+          <a href="/" class="text-muted hover:text-signal transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </a>
+          <h1 class="text-h1 text-text">Privacy Policy</h1>
+        </div>
+        <p class="text-micro text-muted">Last updated: {lastUpdated}</p>
+      </header>
+
+      <div class="space-y-8 text-body text-muted">
+        <section>
+          <h2 class="text-h2 text-text mb-3">1. Introduction</h2>
+          <p>
+            noyau.news ("noyau", "we", "our", "us") is committed to protecting your privacy. This Privacy Policy
+            explains how we collect, use, and safeguard your information when you use our daily engineering digest
+            service.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">2. Information We Collect</h2>
+
+          <h3 class="text-body text-text font-semibold mt-4 mb-2">Information You Provide</h3>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Email address:</strong> Required for newsletter subscription and account authentication</li>
+          </ul>
+
+          <h3 class="text-body text-text font-semibold mt-4 mb-2">Information Collected Automatically</h3>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Usage data:</strong> Pages visited, features used, and interaction patterns</li>
+            <li><strong>Device information:</strong> Browser type, operating system, and device type</li>
+            <li><strong>Log data:</strong> IP address, access times, and referring URLs</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">3. How We Use Your Information</h2>
+          <p class="mb-2">We use your information to:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li>Deliver our daily digest newsletter to your inbox</li>
+            <li>Authenticate your account via magic link emails</li>
+            <li>Improve our service based on usage patterns</li>
+            <li>Communicate important updates about our service</li>
+            <li>Prevent fraud and ensure security</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">4. Cookies and Tracking</h2>
+          <p class="mb-2">We use cookies and similar technologies for:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Essential cookies:</strong> Required for authentication and session management</li>
+            <li><strong>Analytics cookies:</strong> Help us understand how visitors use our site (with your consent)</li>
+          </ul>
+          <p class="mt-2">
+            You can manage your cookie preferences through our consent banner. You can also configure your browser
+            to reject cookies, though this may affect some functionality.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">5. Third-Party Services</h2>
+          <p class="mb-2">We use the following third-party services:</p>
+          <ul class="list-disc list-inside space-y-2 ml-2">
+            <li>
+              <strong>Resend:</strong> Email delivery service for newsletters and authentication emails.
+              <a href="https://resend.com/legal/privacy-policy" class="link-accent" target="_blank" rel="noopener noreferrer">Their privacy policy</a>
+            </li>
+            <li>
+              <strong>PostHog:</strong> Analytics platform to understand service usage (with consent).
+              <a href="https://posthog.com/privacy" class="link-accent" target="_blank" rel="noopener noreferrer">Their privacy policy</a>
+            </li>
+            <li>
+              <strong>Neon:</strong> Database hosting for storing account and subscription data.
+              <a href="https://neon.tech/privacy-policy" class="link-accent" target="_blank" rel="noopener noreferrer">Their privacy policy</a>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">6. Data Retention</h2>
+          <p>
+            We retain your email address and account data for as long as you maintain an active subscription.
+            Analytics data is retained in anonymized or aggregated form. When you unsubscribe or request deletion,
+            we remove your personal data within 30 days, except where we are required to retain it for legal purposes.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">7. Data Security</h2>
+          <p>
+            We implement appropriate technical and organizational measures to protect your data, including encrypted
+            connections (HTTPS), secure password storage, and access controls. However, no method of transmission
+            over the internet is 100% secure.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">8. Your Rights</h2>
+          <p class="mb-2">You have the right to:</p>
+          <ul class="list-disc list-inside space-y-1 ml-2">
+            <li><strong>Access:</strong> Request a copy of your personal data</li>
+            <li><strong>Correction:</strong> Update inaccurate or incomplete data</li>
+            <li><strong>Deletion:</strong> Request deletion of your personal data</li>
+            <li><strong>Unsubscribe:</strong> Opt out of marketing emails at any time via the unsubscribe link</li>
+            <li><strong>Withdraw consent:</strong> Revoke consent for analytics cookies</li>
+          </ul>
+          <p class="mt-2">
+            To exercise these rights, contact us through the channels listed below.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">9. International Data Transfers</h2>
+          <p>
+            Your data may be processed in countries outside your residence. We ensure appropriate safeguards
+            are in place when transferring data internationally, in compliance with applicable data protection laws.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">10. Children's Privacy</h2>
+          <p>
+            Our service is not directed to children under 16. We do not knowingly collect personal information
+            from children. If you believe a child has provided us with personal data, please contact us.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">11. Changes to This Policy</h2>
+          <p>
+            We may update this Privacy Policy from time to time. We will notify you of significant changes via
+            email or through a notice on our website. Your continued use of the service after changes constitutes
+            acceptance of the updated policy.
+          </p>
+        </section>
+
+        <section>
+          <h2 class="text-h2 text-text mb-3">12. Contact Us</h2>
+          <p>
+            For privacy-related questions or to exercise your rights, contact us through our
+            <a href="https://discord.gg/YCbuNqFucb" class="link-accent" target="_blank" rel="noopener noreferrer">Discord community</a>
+            or via <a href="https://x.com/NoyauNews" class="link-accent" target="_blank" rel="noopener noreferrer">X/Twitter</a>.
+          </p>
+        </section>
+      </div>
+
+      <div class="mt-12 text-center">
+        <a href="/" class="text-micro text-muted hover:text-signal transition-colors">
+          Back to home
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>
