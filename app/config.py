@@ -146,6 +146,7 @@ class SeedsConfig:
         self.reddit_subreddits: list[dict[str, str]] = data.get("reddit_subreddits", [])
         self.devto_tags: list[str] = data.get("devto_tags", [])
         self.youtube_channels: list[dict[str, str]] = data.get("youtube_channels", [])
+        self.bluesky_accounts: list[dict[str, str]] = data.get("bluesky_accounts", [])
 
 
 class NitterConfig:

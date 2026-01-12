@@ -5,6 +5,7 @@ from app.config import AppConfig, get_config
 from app.core.datetime_utils import to_naive_utc, utc_now
 from app.core.logging import get_logger
 from app.ingest.base import BaseFetcher, RawContent
+from app.ingest.bluesky import create_bluesky_fetcher
 from app.ingest.devto import create_devto_fetcher
 from app.ingest.nitter import create_nitter_fetcher
 from app.ingest.reddit import create_reddit_fetcher
@@ -42,6 +43,11 @@ def create_all_fetchers(config: AppConfig) -> list[BaseFetcher]:
     if youtube:
         fetchers.append(youtube)
 
+    # Bluesky
+    bluesky = create_bluesky_fetcher(config)
+    if bluesky:
+        fetchers.append(bluesky)
+
     return fetchers
 
 
@@ -72,6 +78,7 @@ async def upsert_content_item(
         "devto": ContentSource.DEVTO,
         "rss": ContentSource.RSS,
         "status": ContentSource.STATUS,
+        "bluesky": ContentSource.BLUESKY,
     }
     source = source_map.get(raw.source, ContentSource.RSS)
 

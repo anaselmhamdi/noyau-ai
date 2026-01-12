@@ -50,6 +50,11 @@ ranking:
     - "patch"
     - "migration"
     - "performance"
+    - "vulnerability"
+    - "advisory"
+    - "security"
+    - "breaking change"
+    - "deprecation"
   practical_boost_value: 0.15
   already_seen_penalty: 0.30
   source_thresholds:
@@ -76,6 +81,57 @@ seeds:
       name: "arXiv CS.AI"
     - url: "http://export.arxiv.org/rss/cs.LG"
       name: "arXiv CS.LG"
+    # Engineering blogs (high-quality postmortems, releases, deep-dives)
+    - url: "https://lobste.rs/rss"
+      name: "Lobsters"
+    - url: "https://blog.cloudflare.com/rss/"
+      name: "Cloudflare Blog"
+    - url: "https://netflixtechblog.com/feed"
+      name: "Netflix Tech Blog"
+    - url: "https://stripe.com/blog/engineering/feed.rss"
+      name: "Stripe Engineering"
+    - url: "https://eng.uber.com/feed/"
+      name: "Uber Engineering"
+    - url: "https://engineering.fb.com/feed/"
+      name: "Meta Engineering"
+    - url: "https://discord.com/blog/engineering/rss.xml"
+      name: "Discord Engineering"
+    - url: "https://fly.io/blog/feed.xml"
+      name: "Fly.io Blog"
+    - url: "https://linear.app/blog/rss"
+      name: "Linear Blog"
+    - url: "https://simonwillison.net/atom/everything/"
+      name: "Simon Willison Blog"
+    - url: "https://changelog.com/news/feed"
+      name: "Changelog News"
+    # Security (triggers practical boost keywords)
+    - url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+      name: "CISA Advisories"
+    # AI/ML
+    - url: "https://huggingface.co/papers/rss.xml"
+      name: "HuggingFace Daily Papers"
+    # Ecosystem newsletters
+    - url: "https://golangweekly.com/rss/"
+      name: "Go Weekly"
+    - url: "https://pycoders.com/feed"
+      name: "PyCoder's Weekly"
+    - url: "https://this-week-in-rust.org/rss.xml"
+      name: "This Week in Rust"
+    # Mastodon accounts (tech community - just RSS feeds)
+    - url: "https://hachyderm.io/@kelseyhightower.rss"
+      name: "Kelsey Hightower (Mastodon)"
+    - url: "https://mastodon.social/@gaborcselle.rss"
+      name: "Gabor Cselle (Mastodon)"
+    - url: "https://mastodon.social/@antirez.rss"
+      name: "Antirez (Mastodon)"
+    - url: "https://infosec.exchange/@taviso.rss"
+      name: "Tavis Ormandy (Mastodon)"
+    - url: "https://hachyderm.io/@mjg59.rss"
+      name: "Matthew Garrett (Mastodon)"
+    - url: "https://mastodon.social/@Mer__edith.rss"
+      name: "Meredith Whittaker (Mastodon)"
+    - url: "https://fosstodon.org/@ThePracticalDev.rss"
+      name: "DEV Community (Mastodon)"
 
   # GitHub releases.atom feeds for key projects
   github_release_feeds:
@@ -99,6 +155,32 @@ seeds:
       name: "OpenTelemetry Python"
     - url: "https://github.com/dbt-labs/dbt-core/releases.atom"
       name: "dbt-core"
+    # Core infrastructure
+    - url: "https://github.com/docker/cli/releases.atom"
+      name: "Docker CLI"
+    - url: "https://github.com/hashicorp/terraform/releases.atom"
+      name: "Terraform"
+    - url: "https://github.com/grafana/grafana/releases.atom"
+      name: "Grafana"
+    - url: "https://github.com/prometheus/prometheus/releases.atom"
+      name: "Prometheus"
+    # Languages & runtimes
+    - url: "https://github.com/rust-lang/rust/releases.atom"
+      name: "Rust"
+    - url: "https://github.com/nodejs/node/releases.atom"
+      name: "Node.js"
+    # Frameworks
+    - url: "https://github.com/vercel/next.js/releases.atom"
+      name: "Next.js"
+    - url: "https://github.com/facebook/react/releases.atom"
+      name: "React"
+    # AI/ML
+    - url: "https://github.com/huggingface/transformers/releases.atom"
+      name: "Transformers"
+    - url: "https://github.com/anthropics/anthropic-sdk-python/releases.atom"
+      name: "Anthropic Python SDK"
+    - url: "https://github.com/vllm-project/vllm/releases.atom"
+      name: "vLLM"
 
   # Curated X/Twitter accounts (fetched via Nitter RSS)
   x_accounts:
@@ -133,6 +215,11 @@ seeds:
     - name: "devops"
     - name: "MachineLearning"
     - name: "ExperiencedDevs"
+    - name: "rust"
+    - name: "node"
+    - name: "netsec"
+    - name: "selfhosted"
+    - name: "LocalLLaMA"
 
   # dev.to tags
   devto_tags:
@@ -143,6 +230,10 @@ seeds:
     - "machinelearning"
     - "ai"
     - "webdev"
+    - "rust"
+    - "security"
+    - "database"
+    - "observability"
 
   # YouTube channels (with transcript support)
   youtube_channels:
@@ -152,6 +243,23 @@ seeds:
       name: "ThePrimeagen"
     - channel_id: "UC8butISFwT-Wl7EV0hUK0BQ"
       name: "freeCodeCamp"
+
+  # Bluesky accounts (AT Protocol public API)
+  bluesky_accounts:
+    - handle: "simonwillison.net"
+      name: "Simon Willison"
+    - handle: "karpathy.bsky.social"
+      name: "Andrej Karpathy"
+    - handle: "swyx.io"
+      name: "swyx"
+    - handle: "hamel.bsky.social"
+      name: "Hamel Husain"
+    - handle: "timnitgebru.bsky.social"
+      name: "Timnit Gebru"
+    - handle: "jay.bsky.team"
+      name: "Jay Graber"
+    - handle: "aaronparecki.com"
+      name: "Aaron Parecki"
 
 # Nitter configuration for X/Twitter RSS feeds
 # Uses self-hosted Nitter instance (requires Twitter session tokens)

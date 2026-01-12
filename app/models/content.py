@@ -18,6 +18,7 @@ class ContentSource(str, enum.Enum):
     DEVTO = "devto"
     RSS = "rss"
     STATUS = "status"
+    BLUESKY = "bluesky"
 
 
 class ContentItem(Base):
