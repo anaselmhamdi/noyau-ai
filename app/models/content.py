@@ -39,7 +39,7 @@ class ContentItem(Base):
     source_id: Mapped[str | None] = mapped_column(String(255))
     url: Mapped[str] = mapped_column(String(2048), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(500))
-    author: Mapped[str | None] = mapped_column(String(255))
+    author: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime] = mapped_column(index=True)
     fetched_at: Mapped[datetime] = mapped_column(default=func.now())
     text: Mapped[str | None] = mapped_column(Text)
