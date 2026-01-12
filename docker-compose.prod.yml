@@ -75,7 +75,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-  # Session refresh with virtual display (xvfb) - not headless, less detectable
+  # Session refresh (browser + xvfb) - slower but less detectable
   # Run with: docker compose run --rm nitter-auth
   nitter-auth:
     image: python:3.12-slim
@@ -88,7 +88,7 @@ services:
       - ./nitter/sessions.jsonl:/data/sessions.jsonl
     command: >
       sh -c "apt-get update &&
-             apt-get install -y --no-install-recommends xvfb chromium chromium-driver &&
+             apt-get install -y --no-install-recommends xvfb xauth chromium chromium-driver &&
              pip install -q --root-user-action=ignore nodriver pyotp &&
              xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24' python create_session_browser.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --append /data/sessions.jsonl"
 

@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 """
 Requirements:
-  pip install -r tools/requirements.txt
+  pip install nodriver pyotp
 
 Usage:
-  python3 tools/create_session_browser.py <username> <password> [totp_seed] [--append sessions.jsonl] [--headless]
+  python3 create_session_browser.py <username> <password> [totp_seed] [--append sessions.jsonl] [--headless]
 
 Examples:
-  # Output to terminal
-  python3 tools/create_session_browser.py myusername mypassword TOTP_SECRET
-
-  # Append to sessions.jsonl
-  python3 tools/create_session_browser.py myusername mypassword TOTP_SECRET --append sessions.jsonl
-
-  # Headless mode (may increase detection risk)
-  python3 tools/create_session_browser.py myusername mypassword TOTP_SECRET --headless
-
-Output:
-  {"kind": "cookie", "username": "...", "id": "...", "auth_token": "...", "ct0": "..."}
+  python3 create_session_browser.py myusername mypassword TOTP_SECRET --append sessions.jsonl
 """
 
 import asyncio
@@ -31,49 +21,122 @@ import pyotp
 
 async def login_and_get_cookies(username, password, totp_seed=None, headless=False):
     """Authenticate with X.com and extract session cookies"""
-    # Note: headless mode may increase detection risk from bot-detection systems
     browser = await uc.start(headless=headless)
     tab = await browser.get("https://x.com/i/flow/login")
 
     try:
+        # Wait for page to load
+        await asyncio.sleep(3)
+
         # Enter username
         print("[*] Entering username...", file=sys.stderr)
-        username_input = await tab.find('input[autocomplete="username"]', timeout=10)
-        await username_input.send_keys(username + "\n")
-        await asyncio.sleep(1)
+        username_input = await tab.find('input[autocomplete="username"]', timeout=15)
+        await username_input.send_keys(username)
+        await asyncio.sleep(0.5)
+        await username_input.send_keys("\n")
+        await asyncio.sleep(3)
 
-        # Enter password
+        # Check for intermediate verification (email/phone confirmation)
+        page_content = await tab.get_content()
+
+        # Twitter sometimes asks to verify email or phone
+        if (
+            "Enter your phone number or email" in page_content
+            or "phone number or username" in page_content.lower()
+        ):
+            print("[*] Email/phone verification required, entering username...", file=sys.stderr)
+            verify_input = await tab.find('input[data-testid="ocfEnterTextTextInput"]', timeout=10)
+            if verify_input:
+                await verify_input.send_keys(username + "\n")
+                await asyncio.sleep(2)
+
+        # Look for password field with multiple selectors
+        print("[*] Looking for password field...", file=sys.stderr)
+        password_input = None
+
+        selectors = [
+            'input[autocomplete="current-password"]',
+            'input[name="password"]',
+            'input[type="password"]',
+        ]
+
+        for selector in selectors:
+            try:
+                password_input = await tab.find(selector, timeout=5)
+                if password_input:
+                    print(f"[*] Found password field with: {selector}", file=sys.stderr)
+                    break
+            except Exception:
+                continue
+
+        if not password_input:
+            # Debug: print what's on the page
+            print("[!] Could not find password field. Page content:", file=sys.stderr)
+            # Get text content for debugging
+            try:
+                title = await tab.find("h1", timeout=2)
+                if title:
+                    print(
+                        f"    Page title: {await title.get_property('textContent')}",
+                        file=sys.stderr,
+                    )
+            except Exception:
+                pass
+            raise Exception("Password field not found - Twitter may be showing a challenge")
+
         print("[*] Entering password...", file=sys.stderr)
-        password_input = await tab.find('input[autocomplete="current-password"]', timeout=15)
-        await password_input.send_keys(password + "\n")
-        await asyncio.sleep(2)
+        await password_input.send_keys(password)
+        await asyncio.sleep(0.5)
+        await password_input.send_keys("\n")
+        await asyncio.sleep(3)
 
         # Handle 2FA if needed
         page_content = await tab.get_content()
-        if "verification code" in page_content or "Enter code" in page_content:
+        if (
+            "verification code" in page_content.lower()
+            or "enter code" in page_content.lower()
+            or "authentication code" in page_content.lower()
+        ):
             if not totp_seed:
                 raise Exception("2FA required but no TOTP seed provided")
 
             print("[*] 2FA detected, entering code...", file=sys.stderr)
             totp_code = pyotp.TOTP(totp_seed).now()
-            code_input = await tab.select('input[type="text"]')
-            await code_input.send_keys(totp_code + "\n")
-            await asyncio.sleep(3)
+
+            code_input = None
+            code_selectors = [
+                'input[data-testid="ocfEnterTextTextInput"]',
+                'input[autocomplete="one-time-code"]',
+                'input[type="text"]',
+            ]
+
+            for selector in code_selectors:
+                try:
+                    code_input = await tab.find(selector, timeout=5)
+                    if code_input:
+                        break
+                except Exception:
+                    continue
+
+            if code_input:
+                await code_input.send_keys(totp_code + "\n")
+                await asyncio.sleep(3)
+            else:
+                raise Exception("Could not find 2FA input field")
 
         # Get cookies
         print("[*] Retrieving cookies...", file=sys.stderr)
-        for _ in range(20):  # 20 second timeout
+        for attempt in range(30):  # 30 second timeout
             cookies = await browser.cookies.get_all()
             cookies_dict = {cookie.name: cookie.value for cookie in cookies}
 
             if "auth_token" in cookies_dict and "ct0" in cookies_dict:
-                print("[*] Found both cookies", file=sys.stderr)
+                print("[*] Found auth cookies!", file=sys.stderr)
 
-                # Extract ID from twid cookie (may be URL-encoded)
+                # Extract ID from twid cookie
                 user_id = None
                 if "twid" in cookies_dict:
                     twid = cookies_dict["twid"]
-                    # Try to extract the ID from twid (format: u%3D<id> or u=<id>)
                     if "u%3D" in twid:
                         user_id = twid.split("u%3D")[1].split("&")[0].strip('"')
                     elif "u=" in twid:
@@ -85,9 +148,11 @@ async def login_and_get_cookies(username, password, totp_seed=None, headless=Fal
 
                 return cookies_dict
 
+            if attempt % 5 == 0:
+                print(f"[*] Waiting for cookies... ({attempt}/30)", file=sys.stderr)
             await asyncio.sleep(1)
 
-        raise Exception("Timeout waiting for cookies")
+        raise Exception("Timeout waiting for auth cookies")
 
     finally:
         browser.stop()
@@ -113,7 +178,7 @@ async def main():
         if arg == "--append":
             if i + 1 < len(sys.argv):
                 append_file = sys.argv[i + 1]
-                i += 2  # Skip '--append' and filename
+                i += 2
             else:
                 print("[!] Error: --append requires a filename", file=sys.stderr)
                 sys.exit(1)
@@ -125,7 +190,6 @@ async def main():
                 totp_seed = arg
             i += 1
         else:
-            # Unkown args
             print(f"[!] Warning: Unknown argument: {arg}", file=sys.stderr)
             i += 1
 
