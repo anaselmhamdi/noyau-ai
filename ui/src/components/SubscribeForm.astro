@@ -31,6 +31,9 @@ const formLocation = isHero ? 'hero' : 'footer';
         class={`input ${isHero ? 'text-center sm:text-left' : ''}`}
         id="subscribe-email"
       />
+      {/* Hidden fields for timezone - auto-filled by JS */}
+      <input type="hidden" name="timezone" id="subscribe-timezone" />
+      <input type="hidden" name="delivery_time_local" id="subscribe-delivery-time" value="08:00" />
       {/* Email icon */}
       <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:block">
         <svg class="w-4 h-4 text-muted/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,6 +48,10 @@ const formLocation = isHero ? 'hero' : 'footer';
       </svg>
     </button>
   </form>
+  {/* Timezone confirmation - shown after detection */}
+  <div id="timezone-info" class={`mt-2 text-xs text-muted text-center ${isHero ? '' : 'hidden'}`}>
+    <span id="timezone-text"></span>
+  </div>
 
   {/* Success/Error messages would be handled by JS */}
   <div id="subscribe-message" class="mt-3 text-center text-body hidden">
@@ -59,11 +66,41 @@ const formLocation = isHero ? 'hero' : 'footer';
   const container = document.getElementById('subscribe');
   const form = document.getElementById('subscribe-form') as HTMLFormElement;
   const emailInput = document.getElementById('subscribe-email') as HTMLInputElement;
+  const timezoneInput = document.getElementById('subscribe-timezone') as HTMLInputElement;
+  const deliveryTimeInput = document.getElementById('subscribe-delivery-time') as HTMLInputElement;
+  const timezoneInfo = document.getElementById('timezone-info');
+  const timezoneText = document.getElementById('timezone-text');
   const messageDiv = document.getElementById('subscribe-message');
   const successMsg = document.getElementById('subscribe-success');
   const errorMsg = document.getElementById('subscribe-error');
   const submitBtn = form?.querySelector('button[type="submit"]') as HTMLButtonElement;
   const btnText = submitBtn?.querySelector('span');
+
+  // Detect and set user's timezone
+  function detectTimezone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'UTC';
+    }
+  }
+
+  // Format timezone for display (e.g., "America/New_York" -> "New York")
+  function formatTimezone(tz: string): string {
+    return tz.split('/').pop()?.replace(/_/g, ' ') || tz;
+  }
+
+  // Initialize timezone detection
+  if (timezoneInput) {
+    const detectedTz = detectTimezone();
+    timezoneInput.value = detectedTz;
+
+    // Show timezone info on hero variant
+    if (timezoneInfo && timezoneText && container?.dataset.formLocation === 'hero') {
+      timezoneText.textContent = `Delivered at 8:00 AM ${formatTimezone(detectedTz)} time`;
+      timezoneInfo.classList.remove('hidden');
+    }
+  }
 
   if (container && form && emailInput) {
     const formLocation = container.dataset.formLocation as 'hero' | 'footer';
@@ -103,17 +140,31 @@ const formLocation = isHero ? 'hero' : 'footer';
       if (successMsg) successMsg.classList.add('hidden');
       if (errorMsg) errorMsg.classList.add('hidden');
 
+      // Build request with timezone
+      const requestBody: Record<string, string> = {
+        email,
+        redirect: '/welcome',
+      };
+
+      if (timezoneInput?.value) {
+        requestBody.timezone = timezoneInput.value;
+      }
+      if (deliveryTimeInput?.value) {
+        requestBody.delivery_time_local = deliveryTimeInput.value;
+      }
+
       try {
         const response = await fetch('/auth/request-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, redirect: '/welcome' }),
+          body: JSON.stringify(requestBody),
         });
 
         if (response.ok) {
           // Show success message
           if (messageDiv) messageDiv.classList.remove('hidden');
           if (successMsg) successMsg.classList.remove('hidden');
+          if (timezoneInfo) timezoneInfo.classList.add('hidden');
           form.classList.add('hidden');
         } else {
           // Show error message

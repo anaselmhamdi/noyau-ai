@@ -37,6 +37,8 @@ dependencies = [
     "typer>=0.15",
     # Scheduling
     "apscheduler>=4.0.0a5",
+    # Discord bot
+    "discord.py>=2.3",
 ]
 
 [project.scripts]

@@ -272,11 +272,19 @@ nitter:
   timeout_seconds: 10
   max_retries: 3
 
-# Discord community integration
+# Discord community integration (webhook posting to channel)
 discord:
   enabled: true  # Set to true once webhook is configured
   invite_url: "https://discord.gg/YCbuNqFucb"  # Public invite link for Discord server
   post_time_utc: "07:30"  # When to post daily digest (after email)
+
+# Discord Bot for DM subscriptions
+# Users add bot to their server, run /subscribe to get daily digest DMs
+# Credentials configured via environment variables (see .env.example)
+discord_bot:
+  enabled: false  # Set to true once bot token is configured
+  post_time_utc: "07:30"  # When to send DMs (same as channel post)
+  invite_url: "https://discord.com/oauth2/authorize?client_id=1460418290143723541&permissions=2048&scope=bot%20applications.commands"
 
 # Twitter thread posting for daily digest
 # Uses Twitter API v2 with OAuth 1.0a User Context

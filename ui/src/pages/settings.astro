@@ -1,0 +1,382 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+export const prerender = false;
+---
+
+<BaseLayout
+  title="Settings"
+  description="Manage your NoyauNews subscription preferences."
+  noindex={true}
+>
+  <Header slot="header" />
+
+  <section class="py-20 sm:py-28">
+    <div class="container">
+      <div class="max-w-md mx-auto">
+        <!-- Loading state -->
+        <div id="loading-state" class="text-center py-12">
+          <div class="animate-pulse">
+            <div class="h-8 bg-surface rounded w-32 mx-auto mb-4"></div>
+            <div class="h-4 bg-surface rounded w-48 mx-auto"></div>
+          </div>
+        </div>
+
+        <!-- Not authenticated - show login prompt -->
+        <div id="login-prompt" class="hidden">
+          <div class="text-center mb-8">
+            <h1 class="text-h1 text-text mb-2">Sign in to manage settings</h1>
+            <p class="text-body text-muted">Enter your email to receive a magic link</p>
+          </div>
+
+          <form id="login-form" class="space-y-4">
+            <div>
+              <label for="login-email" class="sr-only">Email</label>
+              <input
+                type="email"
+                id="login-email"
+                name="email"
+                placeholder="you@company.com"
+                required
+                autocomplete="email"
+                class="input w-full"
+              />
+            </div>
+            <button type="submit" class="btn btn-primary w-full">
+              <span id="login-btn-text">Send magic link</span>
+            </button>
+          </form>
+
+          <div id="login-message" class="mt-4 text-center hidden">
+            <p class="text-good" id="login-success">Check your inbox for the magic link.</p>
+            <p class="text-bad" id="login-error">Something went wrong. Please try again.</p>
+          </div>
+        </div>
+
+        <!-- Authenticated - show settings -->
+        <div id="settings-panel" class="hidden">
+          <div class="mb-8">
+            <h1 class="text-h1 text-text mb-2">Settings</h1>
+            <p class="text-body text-muted">Manage your digest preferences</p>
+          </div>
+
+          <!-- Account info -->
+          <div class="card mb-6">
+            <h2 class="section-header mb-4">Account</h2>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-body text-muted">Email</span>
+                <span id="user-email" class="text-body text-text font-mono"></span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-body text-muted">Referral code</span>
+                <span id="user-ref-code" class="text-body text-text font-mono"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Delivery preferences -->
+          <form id="preferences-form" class="card mb-6">
+            <h2 class="section-header mb-4">Delivery preferences</h2>
+            <div class="space-y-4">
+              <div>
+                <label for="timezone" class="block text-small text-muted mb-2">Timezone</label>
+                <select id="timezone" name="timezone" class="input w-full">
+                  <option value="">Loading timezones...</option>
+                </select>
+              </div>
+              <div>
+                <label for="delivery-time" class="block text-small text-muted mb-2">Delivery time</label>
+                <select id="delivery-time" name="delivery_time_local" class="input w-full">
+                  <option value="06:00">6:00 AM</option>
+                  <option value="07:00">7:00 AM</option>
+                  <option value="08:00" selected>8:00 AM</option>
+                  <option value="09:00">9:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="12:00">12:00 PM</option>
+                  <option value="17:00">5:00 PM</option>
+                  <option value="18:00">6:00 PM</option>
+                  <option value="19:00">7:00 PM</option>
+                  <option value="20:00">8:00 PM</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary w-full">
+                <span id="save-btn-text">Save preferences</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Save feedback -->
+          <div id="save-message" class="mb-6 text-center hidden">
+            <p class="text-good" id="save-success">Preferences saved!</p>
+            <p class="text-bad" id="save-error">Failed to save. Please try again.</p>
+          </div>
+
+          <!-- Subscription status -->
+          <div id="subscription-section" class="card border-border">
+            <!-- Subscribed state -->
+            <div id="subscribed-state" class="hidden">
+              <h2 class="section-header mb-4">Email subscription</h2>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="w-2 h-2 rounded-full bg-good"></span>
+                <span class="text-body text-text">Subscribed to daily digest</span>
+              </div>
+              <p class="text-body text-muted mb-4">
+                You'll receive the daily digest at your preferred time.
+              </p>
+              <button
+                id="unsubscribe-btn"
+                type="button"
+                class="btn btn-ghost border border-bad/30 text-bad hover:bg-bad/10 w-full"
+              >
+                Unsubscribe from emails
+              </button>
+            </div>
+
+            <!-- Unsubscribed state -->
+            <div id="unsubscribed-state" class="hidden">
+              <h2 class="section-header mb-4">Email subscription</h2>
+              <div class="flex items-center gap-2 mb-4">
+                <span class="w-2 h-2 rounded-full bg-muted"></span>
+                <span class="text-body text-muted">Not subscribed</span>
+              </div>
+              <p class="text-body text-muted mb-4">
+                You're not receiving daily digest emails.
+              </p>
+              <button
+                id="resubscribe-btn"
+                type="button"
+                class="btn btn-primary w-full"
+              >
+                Resubscribe to emails
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</BaseLayout>
+
+<script>
+  // DOM elements
+  const loadingState = document.getElementById('loading-state');
+  const loginPrompt = document.getElementById('login-prompt');
+  const settingsPanel = document.getElementById('settings-panel');
+  const loginForm = document.getElementById('login-form') as HTMLFormElement;
+  const loginEmail = document.getElementById('login-email') as HTMLInputElement;
+  const loginMessage = document.getElementById('login-message');
+  const loginSuccess = document.getElementById('login-success');
+  const loginError = document.getElementById('login-error');
+  const loginBtnText = document.getElementById('login-btn-text');
+  const preferencesForm = document.getElementById('preferences-form') as HTMLFormElement;
+  const timezoneSelect = document.getElementById('timezone') as HTMLSelectElement;
+  const deliveryTimeSelect = document.getElementById('delivery-time') as HTMLSelectElement;
+  const saveMessage = document.getElementById('save-message');
+  const saveSuccess = document.getElementById('save-success');
+  const saveError = document.getElementById('save-error');
+  const saveBtnText = document.getElementById('save-btn-text');
+  const userEmail = document.getElementById('user-email');
+  const userRefCode = document.getElementById('user-ref-code');
+  const subscribedState = document.getElementById('subscribed-state');
+  const unsubscribedState = document.getElementById('unsubscribed-state');
+  const unsubscribeBtn = document.getElementById('unsubscribe-btn');
+  const resubscribeBtn = document.getElementById('resubscribe-btn');
+
+  // Current user data
+  let currentUser: {
+    email: string;
+    timezone: string;
+    delivery_time_local: string;
+    ref_code: string;
+    is_subscribed: boolean;
+  } | null = null;
+
+  // Check authentication and load user data
+  async function init() {
+    try {
+      const res = await fetch('/api/me');
+      const data = await res.json();
+
+      loadingState?.classList.add('hidden');
+
+      if (data.authed) {
+        currentUser = data;
+        await loadTimezones();
+        populateSettings(data);
+        settingsPanel?.classList.remove('hidden');
+      } else {
+        loginPrompt?.classList.remove('hidden');
+      }
+    } catch {
+      loadingState?.classList.add('hidden');
+      loginPrompt?.classList.remove('hidden');
+    }
+  }
+
+  // Load timezone options
+  async function loadTimezones() {
+    try {
+      const res = await fetch('/api/timezones');
+      const data = await res.json();
+
+      if (timezoneSelect && data.timezones) {
+        timezoneSelect.innerHTML = data.timezones
+          .map((tz: string) => {
+            const label = tz.replace(/_/g, ' ');
+            return `<option value="${tz}">${label}</option>`;
+          })
+          .join('');
+      }
+    } catch {
+      // Keep default option
+    }
+  }
+
+  // Populate settings with user data
+  function populateSettings(data: typeof currentUser) {
+    if (!data) return;
+
+    if (userEmail) userEmail.textContent = data.email;
+    if (userRefCode) userRefCode.textContent = data.ref_code;
+    if (timezoneSelect) timezoneSelect.value = data.timezone;
+    if (deliveryTimeSelect) deliveryTimeSelect.value = data.delivery_time_local;
+
+    // Update subscription state UI
+    updateSubscriptionUI(data.is_subscribed);
+  }
+
+  // Update subscription state UI
+  function updateSubscriptionUI(isSubscribed: boolean) {
+    if (isSubscribed) {
+      subscribedState?.classList.remove('hidden');
+      unsubscribedState?.classList.add('hidden');
+    } else {
+      subscribedState?.classList.add('hidden');
+      unsubscribedState?.classList.remove('hidden');
+    }
+  }
+
+  // Handle login form
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = loginEmail?.value;
+    if (!email) return;
+
+    if (loginBtnText) loginBtnText.textContent = 'Sending...';
+    loginMessage?.classList.add('hidden');
+    loginSuccess?.classList.add('hidden');
+    loginError?.classList.add('hidden');
+
+    try {
+      const res = await fetch('/auth/request-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, redirect: '/settings' }),
+      });
+
+      if (res.ok) {
+        loginMessage?.classList.remove('hidden');
+        loginSuccess?.classList.remove('hidden');
+        loginForm?.classList.add('hidden');
+      } else {
+        loginMessage?.classList.remove('hidden');
+        loginError?.classList.remove('hidden');
+        if (loginBtnText) loginBtnText.textContent = 'Send magic link';
+      }
+    } catch {
+      loginMessage?.classList.remove('hidden');
+      loginError?.classList.remove('hidden');
+      if (loginBtnText) loginBtnText.textContent = 'Send magic link';
+    }
+  });
+
+  // Handle preferences form
+  preferencesForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (saveBtnText) saveBtnText.textContent = 'Saving...';
+    saveMessage?.classList.add('hidden');
+    saveSuccess?.classList.add('hidden');
+    saveError?.classList.add('hidden');
+
+    const payload: Record<string, string> = {};
+    if (timezoneSelect?.value) payload.timezone = timezoneSelect.value;
+    if (deliveryTimeSelect?.value) payload.delivery_time_local = deliveryTimeSelect.value;
+
+    try {
+      const res = await fetch('/api/me/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        saveMessage?.classList.remove('hidden');
+        saveSuccess?.classList.remove('hidden');
+        setTimeout(() => {
+          saveMessage?.classList.add('hidden');
+        }, 3000);
+      } else {
+        saveMessage?.classList.remove('hidden');
+        saveError?.classList.remove('hidden');
+      }
+    } catch {
+      saveMessage?.classList.remove('hidden');
+      saveError?.classList.remove('hidden');
+    }
+
+    if (saveBtnText) saveBtnText.textContent = 'Save preferences';
+  });
+
+  // Handle unsubscribe
+  unsubscribeBtn?.addEventListener('click', async () => {
+    const confirmed = confirm(
+      'Are you sure you want to unsubscribe? You will stop receiving daily digest emails.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/api/me/unsubscribe', {
+        method: 'POST',
+      });
+
+      if (res.ok) {
+        if (currentUser) currentUser.is_subscribed = false;
+        updateSubscriptionUI(false);
+      } else {
+        alert('Something went wrong. Please try again.');
+      }
+    } catch {
+      alert('Something went wrong. Please try again.');
+    }
+  });
+
+  // Handle resubscribe
+  resubscribeBtn?.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/me/resubscribe', {
+        method: 'POST',
+      });
+
+      if (res.ok) {
+        if (currentUser) currentUser.is_subscribed = true;
+        updateSubscriptionUI(true);
+      } else {
+        alert('Something went wrong. Please try again.');
+      }
+    } catch {
+      alert('Something went wrong. Please try again.');
+    }
+  });
+
+  // Initialize
+  init();
+</script>

@@ -43,9 +43,33 @@ def get_session_expiry():
 __all__ = ["is_expired"]
 
 
-def build_magic_link_url(token: str, redirect_path: str = "/") -> str:
-    """Build the full magic link URL."""
-    return f"{settings.base_url}/auth/magic?token={token}&redirect={redirect_path}"
+def build_magic_link_url(
+    token: str,
+    redirect_path: str = "/",
+    timezone: str | None = None,
+    delivery_time_local: str | None = None,
+) -> str:
+    """Build the full magic link URL.
+
+    Args:
+        token: The magic link token
+        redirect_path: Path to redirect after login
+        timezone: Optional IANA timezone for new users
+        delivery_time_local: Optional delivery time in HH:MM format
+
+    Returns:
+        Full magic link URL with encoded parameters
+    """
+    from urllib.parse import quote
+
+    url = f"{settings.base_url}/auth/magic?token={token}&redirect={quote(redirect_path)}"
+
+    if timezone:
+        url += f"&timezone={quote(timezone)}"
+    if delivery_time_local:
+        url += f"&delivery_time={quote(delivery_time_local)}"
+
+    return url
 
 
 def generate_unsubscribe_token(email: str) -> str:

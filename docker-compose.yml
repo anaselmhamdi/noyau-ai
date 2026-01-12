@@ -78,6 +78,26 @@ services:
       - api
       - ui
 
+  # Discord bot for DM subscriptions
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-noyau}:${POSTGRES_PASSWORD:-noyau}@db:5432/${POSTGRES_DB:-noyau}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID:-}
+      LOG_DIR: /app/logs
+    volumes:
+      - ./config.yml:/app/config.yml:ro
+    command: python -m app.jobs.discord_bot
+
   # Self-hosted Nitter for X/Twitter RSS feeds
   nitter-redis:
     image: redis:7-alpine

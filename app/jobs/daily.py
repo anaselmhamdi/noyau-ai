@@ -163,8 +163,13 @@ def format_preview_output(ranked_with_summaries: list) -> str:
     )
 
 
-async def main(dry_run: bool = False) -> None:
-    """Run the daily issue build job."""
+async def main(dry_run: bool = False, skip_email: bool = False) -> None:
+    """Run the daily issue build job.
+
+    Args:
+        dry_run: If True, skip database writes and dispatches
+        skip_email: If True, skip email dispatch (used by scheduler for separate delivery)
+    """
     setup_logging()
     logger.bind(dry_run=dry_run).info("daily_job_started")
 
@@ -196,14 +201,17 @@ async def main(dry_run: bool = False) -> None:
             # =====================================================================
             # DISPATCH: Email
             # =====================================================================
-            try:
-                sent_count = await send_digest_emails(issue_date, items)
-                logger.bind(count=sent_count).info("emails_sent")
-                dispatch_results["email"] = True
-            except Exception as e:
-                logger.bind(error=str(e)).error("email_send_failed")
-                dispatch_results["email"] = False
-                await _notify_dispatch_error("Email", e)
+            if not skip_email:
+                try:
+                    sent_count = await send_digest_emails(issue_date, items)
+                    logger.bind(count=sent_count).info("emails_sent")
+                    dispatch_results["email"] = True
+                except Exception as e:
+                    logger.bind(error=str(e)).error("email_send_failed")
+                    dispatch_results["email"] = False
+                    await _notify_dispatch_error("Email", e)
+            else:
+                logger.info("email_dispatch_skipped")
 
             # =====================================================================
             # DISPATCH: Discord

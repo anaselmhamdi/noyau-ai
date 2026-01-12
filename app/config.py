@@ -47,9 +47,13 @@ class Settings(BaseSettings):
     # Scheduler
     scheduler_enabled: bool = Field(default=True)
 
-    # Discord
+    # Discord (webhook for channel posting)
     discord_webhook_url: str = Field(default="")
     discord_error_webhook_url: str = Field(default="")
+
+    # Discord Bot (for DM subscriptions)
+    discord_bot_token: str = Field(default="")
+    discord_application_id: str = Field(default="")
 
     # Video Generation
     video_enabled: bool = Field(default=False)
@@ -183,6 +187,16 @@ class DiscordConfig:
         self.webhook_url: str = settings.discord_webhook_url
         self.error_webhook_url: str = settings.discord_error_webhook_url
         self.invite_url: str = data.get("invite_url", "")
+        self.post_time_utc: str = data.get("post_time_utc", "07:30")
+
+
+class DiscordBotConfig:
+    """Discord Bot configuration for DM subscriptions."""
+
+    def __init__(self, data: dict[str, Any], settings: "Settings") -> None:
+        self.enabled: bool = data.get("enabled", False)
+        self.bot_token: str = settings.discord_bot_token
+        self.application_id: str = settings.discord_application_id
         self.post_time_utc: str = data.get("post_time_utc", "07:30")
 
 
@@ -342,6 +356,7 @@ class AppConfig:
         self.seeds = SeedsConfig(data.get("seeds", {}))
         self.nitter = NitterConfig(data.get("nitter", {}))
         self.discord = DiscordConfig(data.get("discord", {}), self.settings)
+        self.discord_bot = DiscordBotConfig(data.get("discord_bot", {}), self.settings)
         self.twitter = TwitterConfig(data.get("twitter", {}), self.settings)
         self.tiktok = TikTokConfig(data.get("tiktok", {}), self.settings)
         self.instagram = InstagramConfig(data.get("instagram", {}), self.settings)

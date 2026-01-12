@@ -25,6 +25,8 @@ async def send_magic_link_email(
     email: str,
     token: str,
     redirect_path: str = "/",
+    timezone: str | None = None,
+    delivery_time_local: str | None = None,
 ) -> None:
     """
     Send a magic link email to the user.
@@ -33,11 +35,18 @@ async def send_magic_link_email(
         email: Recipient email address
         token: The raw (unhashed) magic link token
         redirect_path: Path to redirect to after login
+        timezone: Optional IANA timezone for new users
+        delivery_time_local: Optional delivery time in HH:MM format
     """
     _init_resend()
     settings = get_settings()
 
-    magic_url = build_magic_link_url(token, redirect_path)
+    magic_url = build_magic_link_url(
+        token,
+        redirect_path,
+        timezone=timezone,
+        delivery_time_local=delivery_time_local,
+    )
 
     try:
         template = jinja_env.get_template("magic_link.html")

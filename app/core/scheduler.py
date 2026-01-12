@@ -2,9 +2,14 @@
 APScheduler integration for FastAPI.
 
 Runs hourly ingest and daily digest jobs in-process with PostgreSQL persistence.
+
+Jobs:
+- Hourly ingest: Fetches content from all sources (top of every hour)
+- Daily build: Builds the issue at 05:00 UTC (before any user's delivery window)
+- Delivery window: Sends digests to users every 15 min based on their timezone
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from apscheduler import AsyncScheduler, ConflictPolicy, JobOutcome, JobReleased
@@ -34,9 +39,64 @@ async def hourly_job() -> None:
             raise  # Re-raise so APScheduler records the failure
 
 
-async def daily_job() -> None:
-    """Daily digest job - builds issue and sends emails."""
+async def daily_build_job() -> None:
+    """Daily build job - builds issue and dispatches to social channels.
+
+    Runs at 05:00 UTC to ensure the issue is ready before any user's
+    delivery window starts. Email dispatch is handled separately by
+    the delivery_window_job.
+    """
     # Import here to avoid circular imports
+    from app.jobs.daily import main as run_daily_job
+
+    logger.info("scheduled_daily_build_started")
+    try:
+        await run_daily_job(dry_run=False, skip_email=True)
+        logger.info("scheduled_daily_build_completed")
+    except Exception as e:
+        logger.bind(error=str(e)).error("scheduled_daily_build_failed")
+        raise
+
+
+async def delivery_window_job() -> None:
+    """Delivery window job - sends digests to users in their delivery window.
+
+    Runs every 15 minutes. Checks which users should receive the digest
+    based on their timezone and preferred delivery time, then sends
+    to those whose window is active or has passed (catch-up logic).
+    """
+    from app.services.digest_dispatch import send_digest_to_ready_users
+
+    logger.debug("delivery_window_job_started")
+    async with AsyncSessionLocal() as db:
+        try:
+            issue_date = date.today()
+            result = await send_digest_to_ready_users(db, issue_date)
+
+            if result.get("no_issue"):
+                logger.debug("delivery_window_no_issue")
+                return
+
+            if result["sent_count"] > 0 or result["error_count"] > 0:
+                logger.bind(
+                    sent=result["sent_count"],
+                    errors=result["error_count"],
+                ).info("delivery_window_job_completed")
+            else:
+                logger.debug("delivery_window_no_users_ready")
+
+        except Exception as e:
+            logger.bind(error=str(e)).error("delivery_window_job_failed")
+            raise
+
+
+# Backwards compatibility alias
+async def daily_job() -> None:
+    """Daily digest job - builds issue and sends emails.
+
+    DEPRECATED: Use daily_build_job + delivery_window_job instead.
+    Kept for backwards compatibility with manual CLI invocation.
+    """
     from app.jobs.daily import main as run_daily_job
 
     logger.info("scheduled_daily_job_started")
@@ -45,7 +105,7 @@ async def daily_job() -> None:
         logger.info("scheduled_daily_job_completed")
     except Exception as e:
         logger.bind(error=str(e)).error("scheduled_daily_job_failed")
-        raise  # Re-raise so APScheduler records the failure
+        raise
 
 
 async def _record_job_result(
@@ -98,18 +158,31 @@ async def start_scheduler() -> AsyncScheduler | None:
         conflict_policy=ConflictPolicy.replace,  # Update if already exists
     )
 
-    # Daily job: 8:00 UTC
+    # Daily build job: 05:00 UTC (before any user's delivery window)
+    # This builds the issue and dispatches to social channels (not email)
     await scheduler.add_schedule(
-        daily_job,
-        CronTrigger(hour=8, minute=0),
-        id="daily_digest",
+        daily_build_job,
+        CronTrigger(hour=5, minute=0),
+        id="daily_build",
+        conflict_policy=ConflictPolicy.replace,
+    )
+
+    # Delivery window job: every 15 minutes
+    # Sends digest emails to users based on their timezone preferences
+    await scheduler.add_schedule(
+        delivery_window_job,
+        CronTrigger(minute="*/15"),
+        id="delivery_window",
         conflict_policy=ConflictPolicy.replace,
     )
 
     # Start the scheduler's background worker to actually process jobs
     await scheduler.start_in_background()
 
-    logger.info("scheduler_started", jobs=["hourly_ingest", "daily_digest"])
+    logger.info(
+        "scheduler_started",
+        jobs=["hourly_ingest", "daily_build", "delivery_window"],
+    )
 
     return scheduler
 

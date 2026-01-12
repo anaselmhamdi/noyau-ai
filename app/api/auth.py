@@ -83,6 +83,8 @@ async def request_magic_link(
             email=body.email,
             token=token,
             redirect_path=body.redirect,
+            timezone=body.timezone,
+            delivery_time_local=body.delivery_time_local,
         )
 
         # Track signup completed (magic link sent successfully)
@@ -110,6 +112,8 @@ async def verify_magic_link(
     redirect: str,
     response: Response,
     db: DBSession,
+    timezone: str | None = Query(default=None),
+    delivery_time: str | None = Query(default=None),
 ) -> Response:
     """
     Verify a magic link token and create a session.
@@ -154,11 +158,31 @@ async def verify_magic_link(
 
     is_new_user = user is None
     if not user:
-        # Create new user
-        user = User(
-            email=magic_link.email,
-            ref_code=generate_ref_code(),
-        )
+        # Create new user with timezone preferences if provided
+        user_kwargs = {
+            "email": magic_link.email,
+            "ref_code": generate_ref_code(),
+        }
+
+        # Apply timezone if valid
+        if timezone:
+            from app.core.datetime_utils import is_valid_timezone
+
+            if is_valid_timezone(timezone):
+                user_kwargs["timezone"] = timezone
+
+        # Apply delivery time if valid
+        if delivery_time:
+            try:
+                parts = delivery_time.split(":")
+                if len(parts) == 2:
+                    hour, minute = int(parts[0]), int(parts[1])
+                    if 0 <= hour <= 23 and 0 <= minute <= 59:
+                        user_kwargs["delivery_time_local"] = f"{hour:02d}:{minute:02d}"
+            except (ValueError, IndexError):
+                pass  # Keep default
+
+        user = User(**user_kwargs)
         db.add(user)
         await db.flush()
 

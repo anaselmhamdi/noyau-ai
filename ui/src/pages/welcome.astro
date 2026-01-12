@@ -73,8 +73,8 @@ const formattedDate = new Date(latestDate).toLocaleDateString('en-US', {
                 <span class="font-mono text-micro text-signal font-bold">2</span>
               </span>
               <div>
-                <p class="text-body text-text font-medium">Daily at 8am</p>
-                <p class="text-body text-muted">Get tomorrow's brief delivered to your inbox</p>
+                <p class="text-body text-text font-medium">Daily at <span id="delivery-time">8:00 AM</span></p>
+                <p class="text-body text-muted">Get tomorrow's brief delivered <span id="timezone-info">to your inbox</span></p>
               </div>
             </li>
             <li class="flex items-start gap-3">
@@ -143,4 +143,36 @@ const formattedDate = new Date(latestDate).toLocaleDateString('en-US', {
 
   // Track that user came from magic link
   trackMagicLinkClicked();
+
+  // Fetch user's delivery preferences and update display
+  async function updateDeliveryInfo() {
+    try {
+      const res = await fetch('/api/me');
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (!data.authed) return;
+
+      const deliveryTimeEl = document.getElementById('delivery-time');
+      const timezoneInfoEl = document.getElementById('timezone-info');
+
+      if (data.delivery_time_local && deliveryTimeEl) {
+        // Parse HH:MM to 12-hour format
+        const [hour, minute] = data.delivery_time_local.split(':').map(Number);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        deliveryTimeEl.textContent = `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
+      }
+
+      if (data.timezone && timezoneInfoEl) {
+        // Format timezone for display (e.g., "America/New_York" -> "New York time")
+        const cityName = data.timezone.split('/').pop()?.replace(/_/g, ' ') || data.timezone;
+        timezoneInfoEl.textContent = `in ${cityName} time`;
+      }
+    } catch {
+      // Silently fail - default text is fine
+    }
+  }
+
+  updateDeliveryInfo();
 </script>
