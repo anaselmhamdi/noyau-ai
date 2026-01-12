@@ -86,16 +86,20 @@ services:
       - ./nitter/sessions.jsonl:/data/sessions.jsonl
     command: ["sh", "-c", "pip install -q --root-user-action=ignore curl_cffi pyotp && python create_session_curl.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --append /data/sessions.jsonl"]
 
-  # Session refresh (browser) - run with: docker compose run --rm nitter-auth-browser
-  nitter-auth-browser:
-    image: python:3.12-slim
+  # Browser with web VNC for manual Twitter login
+  # Access at http://localhost:6080 (or tunnel: ssh -L 6080:localhost:6080 user@server)
+  # After login, run: docker compose exec nitter-browser python3 /scripts/extract_cookies.py
+  nitter-browser:
+    image: kasmweb/chrome:1.16.0
     profiles: ["tools"]
-    working_dir: /scripts
-    env_file: .env
+    shm_size: 2gb
+    environment:
+      VNC_PW: ${VNC_PASSWORD:-changeme}
+    ports:
+      - "127.0.0.1:6080:6901"
     volumes:
       - ./nitter/scripts:/scripts:ro
       - ./nitter/sessions.jsonl:/data/sessions.jsonl
-    command: ["sh", "-c", "apt-get update && apt-get install -y --no-install-recommends chromium chromium-driver && pip install -q --root-user-action=ignore nodriver pyotp && python create_session_browser.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --headless --append /data/sessions.jsonl"]
 
   # Auto-update containers when new images are pushed to GHCR
   watchtower:
