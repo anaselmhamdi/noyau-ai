@@ -28,6 +28,14 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
+def _health_log_filter(record: dict[str, Any]) -> bool:
+    """Filter health check logs - only show at DEBUG level."""
+    message = record.get("message", "")
+    if "/health" in message:
+        return bool(record["level"].no <= 10)  # DEBUG level
+    return True
+
+
 def _upload_rotated_log_to_s3(log_path: str) -> None:
     """Upload rotated log file to S3 bucket."""
     try:
@@ -67,12 +75,12 @@ def setup_logging() -> None:
             diagnose=True,
         )
     else:
-        # JSON format for production - logs go to stderr (docker logs)
-        # and are collected via docker logging driver or external service
+        # Human-readable format for production - logs go to stderr (docker logs)
         logger.add(
             sys.stderr,
             level="INFO",
-            serialize=True,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+            filter=_health_log_filter,
             backtrace=True,
             diagnose=False,
         )

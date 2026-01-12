@@ -98,13 +98,16 @@ async def start_scheduler() -> AsyncScheduler | None:
         conflict_policy=ConflictPolicy.replace,  # Update if already exists
     )
 
-    # Daily job: 6:00 UTC
+    # Daily job: 8:00 UTC
     await scheduler.add_schedule(
         daily_job,
-        CronTrigger(hour=6, minute=0),
+        CronTrigger(hour=8, minute=0),
         id="daily_digest",
         conflict_policy=ConflictPolicy.replace,
     )
+
+    # Start the scheduler's background worker to actually process jobs
+    await scheduler.start_in_background()
 
     logger.info("scheduler_started", jobs=["hourly_ingest", "daily_digest"])
 
