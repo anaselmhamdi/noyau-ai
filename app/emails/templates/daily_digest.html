@@ -87,6 +87,47 @@
                                 </tr>
                                 {% endfor %}
 
+                                <!-- Podcast Section -->
+                                {% if podcast_audio_url %}
+                                <tr>
+                                    <td style="padding: 24px 28px; border-top: 1px solid #223047; border-bottom: 1px solid #223047;">
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="text-align: center;">
+                                                    <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        Prefer to listen?
+                                                    </p>
+                                                    <p style="margin: 0 0 16px 0; font-size: 14px; color: #E5E7EB;">
+                                                        {% if podcast_duration_display %}{{ podcast_duration_display }} &bull; {% endif %}Top 5 stories &bull; Perfect for your commute
+                                                    </p>
+                                                    <table role="presentation" style="border-collapse: collapse; margin: 0 auto;">
+                                                        <tr>
+                                                            <td style="padding-right: 12px;">
+                                                                <a href="{{ podcast_page_url }}"
+                                                                   target="_blank"
+                                                                   style="display: inline-block; padding: 12px 24px; font-size: 13px; font-weight: 600; color: #0B0F14; background: linear-gradient(135deg, #22D3EE, #06b6d4); text-decoration: none; border-radius: 999px; box-shadow: 0 2px 8px rgba(34, 211, 238, 0.25);">
+                                                                    &#9658; Listen Now
+                                                                </a>
+                                                            </td>
+                                                            <td>
+                                                                <a href="{{ podcast_page_url }}#subscribe"
+                                                                   target="_blank"
+                                                                   style="display: inline-block; padding: 12px 24px; font-size: 13px; font-weight: 600; color: #E5E7EB; background-color: transparent; border: 1px solid #223047; text-decoration: none; border-radius: 999px;">
+                                                                    Subscribe
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <p style="margin: 12px 0 0 0; font-size: 11px; color: #64748B; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;">
+                                                        Apple Podcasts &bull; Spotify &bull; RSS
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
                                 <!-- Teaser Items (6-10) -->
                                 {% if teaser_items %}
                                 <tr>
@@ -231,6 +272,8 @@
                                 <a href="https://x.com/NoyauNews" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 8px;">X</a>
                                 <span style="color: #334155;">&bull;</span>
                                 <a href="https://www.youtube.com/channel/UC8ObkWnKP4UPzi2qku2TlXw" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 8px;">YouTube</a>
+                                <span style="color: #334155;">&bull;</span>
+                                <a href="https://noyau.news/podcast" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 8px;">Podcast</a>
                                 <span style="color: #334155;">&bull;</span>
                                 <a href="https://discord.com/oauth2/authorize?client_id=1460418290143723541&amp;permissions=2048&amp;scope=bot%20applications.commands" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 8px;">Discord</a>
                                 <span style="color: #334155;">&bull;</span>

@@ -1,0 +1,374 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+export const prerender = false;
+
+const apiUrl = process.env.API_URL || '';
+const infoRes = await fetch(`${apiUrl}/api/podcast/info`);
+const episodesRes = await fetch(`${apiUrl}/api/podcast/episodes?limit=20`);
+
+const hasPodcast = infoRes.ok;
+const podcastInfo = hasPodcast ? await infoRes.json() : null;
+const episodes = episodesRes.ok ? await episodesRes.json() : [];
+
+const latestEpisode = podcastInfo?.latest_episode || episodes[0] || null;
+const feedUrl = `${apiUrl}/api/podcast/feed.xml`;
+
+const formatDuration = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatDate = (dateStr: string) => {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const pageDescription = 'Daily 8-minute audio briefings for engineers. Listen to the top tech stories on your commute.';
+const canonicalUrl = 'https://noyau.news/podcast';
+---
+
+<BaseLayout
+  title="Podcast"
+  description={pageDescription}
+  canonicalUrl={canonicalUrl}
+>
+  <Header slot="header" />
+
+  <div class="py-6 sm:py-10">
+    <div class="container">
+      {/* Header */}
+      <header class="mb-10 sm:mb-12 relative overflow-hidden">
+        {/* Breadcrumb */}
+        <nav class="flex items-center gap-2 text-xs font-mono text-muted mb-4 text-tabular">
+          <a href="/" class="hover:text-signal transition-colors duration-smooth">noyau</a>
+          <span class="text-border">/</span>
+          <span class="text-text">podcast</span>
+        </nav>
+
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-signal/10 flex items-center justify-center">
+                <svg class="w-5 h-5 text-signal" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              </div>
+              <span class="px-2.5 py-1 rounded-full bg-signal/10 text-signal text-xs font-medium border border-signal/20">
+                Audio Digest
+              </span>
+            </div>
+
+            <h1 class="text-display text-text text-editorial">
+              The Noyau Podcast
+            </h1>
+
+            <p class="mt-3 text-body text-muted max-w-lg">
+              Daily 8-minute audio briefings covering the top 5 tech stories.
+              Perfect for your commute, workout, or morning coffee.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      {hasPodcast && latestEpisode ? (
+        <>
+          {/* Featured Episode with Player */}
+          <section class="mb-12" id="player">
+            <div class="card p-6 sm:p-8">
+              <div class="flex items-center gap-2 text-xs font-mono text-signal mb-4">
+                <span class="inline-block w-2 h-2 bg-signal rounded-full animate-pulse-subtle"></span>
+                <span>Latest Episode</span>
+              </div>
+
+              <h2 class="text-xl font-semibold text-text mb-2">
+                {latestEpisode.title}
+              </h2>
+              <p class="text-body text-muted mb-6">
+                {latestEpisode.description}
+              </p>
+
+              {/* Plyr Audio Player */}
+              <div class="mb-6">
+                <audio id="podcast-player" controls class="plyr-audio">
+                  <source src={latestEpisode.audio_url} type="audio/mpeg" />
+                </audio>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-4 text-sm text-muted">
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {formatDuration(latestEpisode.duration_seconds)}
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {formatDate(latestEpisode.issue_date)}
+                </span>
+                <a
+                  href={latestEpisode.audio_url}
+                  download
+                  class="flex items-center gap-1.5 text-signal hover:underline"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download MP3
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {/* Subscribe Section */}
+          <section class="mb-12" id="subscribe">
+            <div class="card p-6 sm:p-8 bg-gradient-to-br from-slate to-slate/50">
+              <h3 class="text-lg font-semibold text-text mb-4">Subscribe to the Podcast</h3>
+
+              <div class="grid sm:grid-cols-3 gap-4 mb-6">
+                <a
+                  href="https://podcasts.apple.com/podcast/id000000000"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-3 p-4 rounded-xl bg-ink/50 border border-border/30 hover:border-signal/30 hover:bg-ink transition-all group"
+                >
+                  <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.167 6.839 9.489.101.018.191-.028.191-.125v-1.755c-.568.083-1.086.066-1.542-.125-.684-.287-1.141-.75-1.481-1.37-.254-.466-.53-.79-.993-1.066-.198-.147-.123-.317.163-.293.617.052 1.079.567 1.513 1.149.355.476.793.856 1.475.856.45 0 1.063-.113 1.415-.273.041-.512.267-.98.61-1.34-2.404-.26-3.893-1.52-3.893-3.69 0-.856.339-1.665.925-2.33-.134-.5-.287-1.34.095-2.197 0 0 .838-.095 2.137.858.49-.132 1.015-.198 1.546-.2.531.002 1.056.068 1.546.2 1.299-.953 2.137-.858 2.137-.858.382.857.229 1.697.095 2.197.586.665.925 1.474.925 2.33 0 2.17-1.489 3.43-3.893 3.69.458.475.743 1.141.743 1.893v2.755c0 .097.09.143.191.125C19.135 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="block text-sm font-medium text-text group-hover:text-signal transition-colors">Apple Podcasts</span>
+                    <span class="text-xs text-muted">Coming soon</span>
+                  </div>
+                </a>
+
+                <a
+                  href="https://open.spotify.com/show/000000000"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-3 p-4 rounded-xl bg-ink/50 border border-border/30 hover:border-signal/30 hover:bg-ink transition-all group"
+                >
+                  <div class="w-10 h-10 rounded-lg bg-[#1DB954] flex items-center justify-center">
+                    <svg class="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="block text-sm font-medium text-text group-hover:text-signal transition-colors">Spotify</span>
+                    <span class="text-xs text-muted">Coming soon</span>
+                  </div>
+                </a>
+
+                <a
+                  href={feedUrl}
+                  target="_blank"
+                  class="flex items-center gap-3 p-4 rounded-xl bg-ink/50 border border-border/30 hover:border-signal/30 hover:bg-ink transition-all group"
+                >
+                  <div class="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6.18 15.64a2.18 2.18 0 0 1 2.18 2.18C8.36 19 7.38 20 6.18 20C5 20 4 19 4 17.82a2.18 2.18 0 0 1 2.18-2.18M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <span class="block text-sm font-medium text-text group-hover:text-signal transition-colors">RSS Feed</span>
+                    <span class="text-xs text-muted">Any podcast app</span>
+                  </div>
+                </a>
+              </div>
+
+              <div class="flex items-center gap-2 p-3 rounded-lg bg-ink/50 border border-border/20">
+                <input
+                  type="text"
+                  value={feedUrl}
+                  readonly
+                  class="flex-1 bg-transparent text-xs font-mono text-muted focus:outline-none"
+                  id="feed-url"
+                />
+                <button
+                  id="copy-feed-btn"
+                  class="px-3 py-1.5 text-xs font-medium text-signal bg-signal/10 rounded-lg hover:bg-signal/20 transition-colors"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Episode Archive */}
+          <section>
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-lg font-semibold text-text">All Episodes</h3>
+              <span class="text-xs font-mono text-muted">{episodes.length} episodes</span>
+            </div>
+
+            <div class="space-y-3">
+              {episodes.map((episode: any, index: number) => (
+                <a
+                  href={`/daily/${episode.issue_date}`}
+                  class="block group"
+                >
+                  <div class="card p-4 flex items-center gap-4 hover:border-signal/30 transition-all">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-hover flex items-center justify-center text-muted group-hover:text-signal group-hover:bg-signal/10 transition-all">
+                      <span class="text-sm font-mono font-semibold">{episode.episode_number}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-medium text-text group-hover:text-signal transition-colors truncate">
+                        {episode.title}
+                      </h4>
+                      <p class="text-xs text-muted mt-0.5">
+                        {formatDate(episode.issue_date)} &bull; {formatDuration(episode.duration_seconds)}
+                      </p>
+                    </div>
+                    <button
+                      data-audio-url={episode.audio_url}
+                      class="play-episode-btn flex-shrink-0 w-10 h-10 rounded-full bg-signal/10 text-signal hover:bg-signal hover:text-ink transition-all flex items-center justify-center"
+                      onclick="event.preventDefault(); event.stopPropagation();"
+                    >
+                      <svg class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : (
+        <div class="card text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-hover flex items-center justify-center">
+            <svg class="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <h2 class="text-lg font-semibold text-text mb-2">
+            Podcast Coming Soon
+          </h2>
+          <p class="text-body text-muted mb-6 max-w-sm mx-auto">
+            We're working on daily audio briefings. Subscribe to the newsletter to be notified when we launch.
+          </p>
+          <a href="/" class="btn btn-primary">
+            Subscribe to Newsletter
+          </a>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <Footer slot="footer" />
+</BaseLayout>
+
+{/* Plyr CSS */}
+<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+
+<style>
+  /* Custom Plyr styles to match our theme */
+  :global(.plyr--audio .plyr__controls) {
+    background: #111827;
+    border-radius: 12px;
+    padding: 12px 16px;
+    border: 1px solid #223047;
+  }
+
+  :global(.plyr--audio .plyr__control) {
+    color: #E5E7EB;
+  }
+
+  :global(.plyr--audio .plyr__control:hover) {
+    background: rgba(34, 211, 238, 0.1);
+    color: #22D3EE;
+  }
+
+  :global(.plyr--audio .plyr__control--pressed) {
+    background: rgba(34, 211, 238, 0.2);
+  }
+
+  :global(.plyr__progress__buffer) {
+    background: rgba(34, 211, 238, 0.2);
+  }
+
+  :global(.plyr--full-ui input[type=range]) {
+    color: #22D3EE;
+  }
+
+  :global(.plyr__time) {
+    color: #94A3B8;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  :global(.plyr__menu__container) {
+    background: #111827;
+    border: 1px solid #223047;
+  }
+
+  :global(.plyr__menu__container .plyr__control) {
+    color: #E5E7EB;
+  }
+
+  :global(.plyr__menu__container .plyr__control:hover) {
+    background: rgba(34, 211, 238, 0.1);
+  }
+</style>
+
+<script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+<script>
+  // Initialize Plyr for the main player
+  document.addEventListener('DOMContentLoaded', () => {
+    const audioElement = document.getElementById('podcast-player');
+    if (audioElement && window.Plyr) {
+      const player = new window.Plyr(audioElement, {
+        controls: ['play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'settings'],
+        settings: ['speed'],
+        speed: { selected: 1, options: [0.75, 1, 1.25, 1.5, 2] },
+      });
+
+      // Handle play buttons for episode list
+      document.querySelectorAll('.play-episode-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const audioUrl = btn.dataset.audioUrl;
+          if (audioUrl && audioElement) {
+            audioElement.src = audioUrl;
+            player.play();
+
+            // Scroll to player
+            document.getElementById('player')?.scrollIntoView({ behavior: 'smooth' });
+          }
+        });
+      });
+    }
+
+    // Copy feed URL functionality
+    const copyBtn = document.getElementById('copy-feed-btn');
+    const feedInput = document.getElementById('feed-url');
+
+    if (copyBtn && feedInput) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(feedInput.value);
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+          }, 2000);
+        } catch (err) {
+          feedInput.select();
+          document.execCommand('copy');
+          copyBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+          }, 2000);
+        }
+      });
+    }
+  });
+</script>

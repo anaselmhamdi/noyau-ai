@@ -16,6 +16,7 @@ from app.core.datetime_utils import (
 from app.core.logging import get_logger
 from app.models.cluster import Cluster, ClusterSummary
 from app.models.digest_delivery import DigestDelivery
+from app.models.issue import Issue
 from app.models.user import User
 from app.pipeline.issue_builder import get_missed_from_yesterday
 from app.services.email_service import send_daily_digest
@@ -104,6 +105,21 @@ async def record_delivery(
     return delivery
 
 
+async def get_issue_for_date(db: AsyncSession, issue_date: date) -> Issue | None:
+    """Fetch the Issue record for a given date.
+
+    Args:
+        db: Database session
+        issue_date: The issue date to fetch
+
+    Returns:
+        Issue object or None if not found
+    """
+    result = await db.execute(select(Issue).where(Issue.issue_date == issue_date))
+    issue: Issue | None = result.scalar_one_or_none()
+    return issue
+
+
 async def get_issue_items_for_date(db: AsyncSession, issue_date: date) -> list[dict]:
     """Fetch issue items for the given date.
 
@@ -163,6 +179,7 @@ async def send_digest_to_ready_users(
         Dict with sent_count, skipped_count, error_count
     """
     # Check if issue exists for today
+    issue = await get_issue_for_date(db, issue_date)
     items = await get_issue_items_for_date(db, issue_date)
     if not items:
         logger.bind(issue_date=str(issue_date)).debug("no_issue_for_date")
@@ -193,6 +210,8 @@ async def send_digest_to_ready_users(
                 issue_date=str(issue_date),
                 items=items,
                 missed_items=missed_items,
+                podcast_audio_url=issue.podcast_audio_url if issue else None,
+                podcast_duration_seconds=issue.podcast_duration_seconds if issue else None,
             )
             await record_delivery(db, user, issue_date)
             sent_count += 1
@@ -247,7 +266,8 @@ async def send_digest_immediately(
         logger.bind(email=user.email, issue_date=str(issue_date)).debug("digest_already_delivered")
         return False
 
-    # Get issue items
+    # Get issue and items
+    issue = await get_issue_for_date(db, issue_date)
     items = await get_issue_items_for_date(db, issue_date)
     if not items:
         return False
@@ -266,6 +286,8 @@ async def send_digest_immediately(
             issue_date=str(issue_date),
             items=items,
             missed_items=missed_items,
+            podcast_audio_url=issue.podcast_audio_url if issue else None,
+            podcast_duration_seconds=issue.podcast_duration_seconds if issue else None,
         )
         await record_delivery(db, user, issue_date)
         await db.commit()

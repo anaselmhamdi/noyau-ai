@@ -10,7 +10,13 @@ from app.models.cluster import Cluster, ClusterSummary
 from app.models.issue import Issue
 from app.pipeline.issue_builder import build_daily_issue, get_missed_from_yesterday
 from app.schemas.common import Citation
-from app.schemas.issue import IssueItemFull, IssueItemPublic, IssueResponse, MissedItem
+from app.schemas.issue import (
+    IssueItemFull,
+    IssueItemPublic,
+    IssuePodcast,
+    IssueResponse,
+    MissedItem,
+)
 
 router = APIRouter()
 
@@ -189,4 +195,28 @@ async def get_issue(
         if c.summary
     ]
 
-    return IssueResponse(date=issue_date, items=items, missed_items=missed_items)
+    # Build podcast data if available
+    podcast = None
+    if issue.podcast_audio_url and issue.podcast_duration_seconds:
+        mins = int(issue.podcast_duration_seconds // 60)
+        secs = int(issue.podcast_duration_seconds % 60)
+        podcast = IssuePodcast(
+            audio_url=issue.podcast_audio_url,
+            duration_seconds=issue.podcast_duration_seconds,
+            duration_display=f"{mins}:{secs:02d}",
+        )
+
+    # Check if this is the latest issue
+    latest_result = await db.execute(
+        select(Issue.issue_date).order_by(Issue.issue_date.desc()).limit(1)
+    )
+    latest_date = latest_result.scalar_one_or_none()
+    is_latest = latest_date == issue_date
+
+    return IssueResponse(
+        date=issue_date,
+        items=items,
+        missed_items=missed_items,
+        podcast=podcast,
+        is_latest=is_latest,
+    )

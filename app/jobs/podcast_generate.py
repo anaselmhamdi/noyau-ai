@@ -156,6 +156,174 @@ async def get_episodes_for_rss(db: AsyncSession, limit: int = 50) -> list[dict]:
     return episodes
 
 
+async def generate_podcast_for_issue(
+    db: AsyncSession,
+    issue_date: date,
+    skip_video: bool = False,
+) -> dict:
+    """Generate podcast for a given issue date.
+
+    This function is called from daily.py after video generation.
+
+    Args:
+        db: Database session
+        issue_date: Date of the issue
+        skip_video: Whether to skip video generation
+
+    Returns:
+        Dict with generation results
+    """
+    # Get podcast config
+    config = get_config()
+    story_count = 5
+
+    if hasattr(config, "podcast") and config.podcast:
+        podcast_cfg = config.podcast
+        if not podcast_cfg.enabled:
+            logger.info("podcast_disabled_in_config")
+            return {"success": False, "reason": "disabled"}
+        story_count = podcast_cfg.story_count
+
+    output_dir = Path("./output/podcasts") / issue_date.isoformat()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.bind(
+        issue_date=str(issue_date),
+        story_count=story_count,
+        skip_video=skip_video,
+    ).info("podcast_generate_started")
+
+    # Check if podcast already exists
+    issue = await get_issue_for_date(db, issue_date)
+    if not issue:
+        logger.warning("no_issue_found_for_date")
+        return {"success": False, "reason": "no_issue"}
+
+    if issue.podcast_audio_url:
+        logger.info("podcast_already_exists")
+        return {"success": True, "audio_url": issue.podcast_audio_url, "already_exists": True}
+
+    # Fetch clusters with summaries
+    clusters = await get_clusters_for_date(db, issue_date)
+    clusters_with_summaries = [c for c in clusters if c.summary]
+
+    if not clusters_with_summaries:
+        logger.warning("no_summaries_found")
+        return {"success": False, "reason": "no_summaries"}
+
+    # Take top N for podcast
+    top_clusters = clusters_with_summaries[:story_count]
+
+    # Convert to distill outputs
+    summaries = []
+    topics = []
+    for cluster in top_clusters:
+        summaries.append(summary_to_distill_output(cluster.summary))
+        topics.append(determine_topic(cluster))
+
+    # Step 1: Generate script
+    script_result = await generate_podcast_script(summaries, topics, issue_date)
+
+    if not script_result:
+        logger.error("podcast_script_generation_failed")
+        return {"success": False, "reason": "script_failed"}
+
+    script = script_result.script
+    logger.bind(
+        story_count=len(script.stories),
+        tokens=script_result.total_tokens,
+    ).info("podcast_script_generated")
+
+    # Step 2: Generate audio
+    generator = PodcastAudioGenerator(
+        voice="nova",
+        model="tts-1-hd",
+        background_volume=0.03,
+    )
+
+    audio_path = output_dir / "noyau_daily.mp3"
+    audio_result = await generator.generate(
+        script=script,
+        output_path=audio_path,
+        include_background_music=True,
+    )
+
+    if not audio_result:
+        logger.error("podcast_audio_generation_failed")
+        return {"success": False, "reason": "audio_failed"}
+
+    duration_min = audio_result.duration_seconds / 60
+    logger.bind(duration_min=duration_min).info("podcast_audio_generated")
+
+    # Step 3: Upload to S3
+    s3_url = await upload_podcast_to_s3(audio_path, issue_date)
+
+    # Step 4: Generate video with waveform (if not skipped)
+    video_s3_url = None
+    if not skip_video:
+        video_path = output_dir / "noyau_daily.mp4"
+
+        bg_path: Path | None = None
+        for ext in ("png", "jpg"):
+            candidate = Path(f"ui/public/podcast-video-bg.{ext}")
+            if candidate.exists():
+                bg_path = candidate
+                break
+
+        count_stmt = select(func.count()).where(Issue.podcast_audio_url.isnot(None))
+        count_result = await db.execute(count_stmt)
+        episode_number = (count_result.scalar() or 0) + 1
+
+        video_result = generate_podcast_video(
+            audio_path=audio_path,
+            output_path=video_path,
+            episode_number=episode_number,
+            issue_date=issue_date,
+            background_image_path=bg_path,
+        )
+
+        if video_result:
+            storage = get_storage_service()
+            if storage.is_configured():
+                video_key = f"podcasts/{issue_date.isoformat()}/noyau_daily.mp4"
+                video_s3_url = await storage.upload_file(
+                    file_path=video_path,
+                    key=video_key,
+                    content_type="video/mp4",
+                    public=True,
+                    metadata={
+                        "issue_date": issue_date.isoformat(),
+                        "type": "podcast_video",
+                    },
+                )
+
+    # Step 5: Update Issue record
+    if s3_url:
+        issue.podcast_audio_url = s3_url
+        issue.podcast_duration_seconds = audio_result.duration_seconds
+        await db.commit()
+
+    # Step 6: Regenerate RSS feed
+    await regenerate_rss_feed(db, output_dir)
+
+    # Cleanup
+    if s3_url:
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+    logger.bind(
+        issue_date=str(issue_date),
+        duration=audio_result.duration_seconds,
+        s3_url=s3_url,
+    ).info("podcast_generate_completed")
+
+    return {
+        "success": True,
+        "audio_url": s3_url,
+        "duration_seconds": audio_result.duration_seconds,
+        "video_url": video_s3_url,
+    }
+
+
 async def regenerate_rss_feed(db: AsyncSession, output_dir: Path) -> None:
     """Regenerate the podcast RSS feed."""
     episodes = await get_episodes_for_rss(db)

@@ -36,9 +36,19 @@ class MissedItem(BaseModel):
     teaser: str
 
 
+class IssuePodcast(BaseModel):
+    """Podcast data for an issue."""
+
+    audio_url: str
+    duration_seconds: float
+    duration_display: str  # e.g., "8:24"
+
+
 class IssueResponse(BaseModel):
     """Response for /api/issues/{date} endpoint."""
 
     date: date
     items: list[IssueItemPublic | IssueItemFull]
     missed_items: list[MissedItem] = Field(default_factory=list)
+    podcast: IssuePodcast | None = None
+    is_latest: bool = False

@@ -101,6 +101,8 @@ async def send_daily_digest(
     issue_date: str,
     items: list[dict],
     missed_items: list[dict] | None = None,
+    podcast_audio_url: str | None = None,
+    podcast_duration_seconds: float | None = None,
 ) -> None:
     """
     Send the daily digest email.
@@ -110,6 +112,8 @@ async def send_daily_digest(
         issue_date: Date of the issue (YYYY-MM-DD)
         items: List of issue items with summaries
         missed_items: Optional list of items from yesterday for "You may have missed"
+        podcast_audio_url: Optional URL to podcast audio file
+        podcast_duration_seconds: Optional podcast duration in seconds
     """
     _init_resend()
     settings = get_settings()
@@ -124,6 +128,15 @@ async def send_daily_digest(
         f"{settings.base_url}/auth/unsubscribe?email={email}&token={unsubscribe_token}"
     )
 
+    # Format podcast duration for display (e.g., "8 min")
+    podcast_duration_display = None
+    if podcast_duration_seconds:
+        minutes = int(podcast_duration_seconds // 60)
+        podcast_duration_display = f"{minutes} min"
+
+    # Build podcast page URL
+    podcast_page_url = f"{settings.base_url}/podcast" if podcast_audio_url else None
+
     try:
         template = jinja_env.get_template("daily_digest.html")
         html = template.render(
@@ -134,6 +147,9 @@ async def send_daily_digest(
             issue_url=issue_url,
             discord_invite_url=discord_invite_url,
             unsubscribe_url=unsubscribe_url,
+            podcast_audio_url=podcast_audio_url,
+            podcast_duration_display=podcast_duration_display,
+            podcast_page_url=podcast_page_url,
         )
     except Exception as e:
         logger.bind(error=str(e)).error("template_error")

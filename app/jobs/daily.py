@@ -26,6 +26,7 @@ from sqlalchemy import select
 from app.config import get_config, get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger, setup_logging
+from app.jobs.podcast_generate import generate_podcast_for_issue
 from app.models.cluster import Cluster, ClusterSummary
 from app.models.user import User
 from app.pipeline.issue_builder import build_daily_issue, get_missed_from_yesterday
@@ -337,6 +338,27 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                     logger.bind(error=str(e)).error("instagram_send_failed")
                     dispatch_results["instagram"] = False
                     await _notify_dispatch_error("Instagram", e)
+
+            # =====================================================================
+            # DISPATCH: Podcast Generation
+            # =====================================================================
+            if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
+                try:
+                    podcast_result = await generate_podcast_for_issue(
+                        db=db,
+                        issue_date=issue_date,
+                        skip_video=False,
+                    )
+                    if podcast_result.get("success"):
+                        logger.bind(
+                            audio_url=podcast_result.get("audio_url"),
+                            duration=podcast_result.get("duration_seconds"),
+                        ).info("podcast_generated")
+                    dispatch_results["podcast"] = podcast_result.get("success", False)
+                except Exception as e:
+                    logger.bind(error=str(e)).error("podcast_generation_failed")
+                    dispatch_results["podcast"] = False
+                    await _notify_dispatch_error("Podcast", e)
 
             # Log dispatch summary
             successful = [k for k, v in dispatch_results.items() if v]
