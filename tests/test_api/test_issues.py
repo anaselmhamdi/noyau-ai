@@ -19,7 +19,7 @@ class TestGetIssue:
         assert "No issue found" in response.json()["detail"]
 
     async def test_get_issue_public_view(self, client: AsyncClient, issue_factory, db_session):
-        """Should return soft-gated content for public view."""
+        """Should return full content for public view (no soft wall)."""
         issue_date = date(2026, 1, 10)
         await issue_factory(issue_date=issue_date, num_clusters=10)
 
@@ -30,24 +30,16 @@ class TestGetIssue:
         assert data["date"] == str(issue_date)
         assert len(data["items"]) == 10
 
-        # Items 1-5 should be fully visible
-        for i in range(5):
-            assert data["items"][i]["locked"] is False
-            assert "takeaway" in data["items"][i]
-            assert "bullets" in data["items"][i]
-
-        # Items 6-10 should be locked
-        for i in range(5, 10):
-            assert data["items"][i]["locked"] is True
-            assert "headline" in data["items"][i]
-            assert "teaser" in data["items"][i]
-            # Locked items should not have full content
-            assert "takeaway" not in data["items"][i]
+        # All items should be fully visible (soft wall removed)
+        for item in data["items"]:
+            assert item["locked"] is False
+            assert "takeaway" in item
+            assert "bullets" in item
 
     async def test_get_issue_full_view_unauthenticated(
         self, client: AsyncClient, issue_factory, db_session
     ):
-        """Should still soft-gate when requesting full view unauthenticated."""
+        """Should return full content even when unauthenticated (no soft wall)."""
         issue_date = date(2026, 1, 11)
         await issue_factory(issue_date=issue_date, num_clusters=10)
 
@@ -59,9 +51,11 @@ class TestGetIssue:
         assert response.status_code == 200
         data = response.json()
 
-        # Items 6-10 should still be locked
-        for i in range(5, 10):
-            assert data["items"][i]["locked"] is True
+        # All items should be fully visible (soft wall removed)
+        for item in data["items"]:
+            assert item["locked"] is False
+            assert "takeaway" in item
+            assert "bullets" in item
 
     async def test_get_issue_full_view_authenticated(
         self,
