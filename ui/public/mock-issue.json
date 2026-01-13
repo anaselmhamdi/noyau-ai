@@ -1,0 +1,175 @@
+{
+  "date": "2026-01-13",
+  "is_latest": true,
+  "items": [
+    {
+      "rank": 1,
+      "headline": "Claude 4 Opus Achieves New State-of-the-Art on Software Engineering Benchmarks",
+      "teaser": "Anthropic's latest model demonstrates unprecedented performance on complex coding tasks, outperforming previous generations by 40% on SWE-bench.",
+      "takeaway": "The leap in reasoning capabilities suggests we're entering a new phase of AI-assisted development where models can tackle multi-file refactoring and architectural decisions.",
+      "bullets": [
+        "Scores 72% on SWE-bench, up from 49% on Claude 3.5 Sonnet",
+        "Handles 100k+ token contexts with consistent accuracy",
+        "New 'extended thinking' mode for complex reasoning chains"
+      ],
+      "citations": [
+        { "url": "https://anthropic.com/news/claude-4", "label": "Anthropic" },
+        { "url": "https://arxiv.org/abs/2401.00001", "label": "arXiv" }
+      ],
+      "confidence": "high",
+      "topic": "AI/ML",
+      "locked": false
+    },
+    {
+      "rank": 2,
+      "headline": "Rust 2.0 RFC Proposes Major Ergonomics Improvements",
+      "teaser": "The Rust team unveils proposals for simplified lifetimes, better async syntax, and improved compile times in the next major version.",
+      "takeaway": "If adopted, these changes would significantly lower the barrier to entry while maintaining Rust's safety guarantees.",
+      "bullets": [
+        "Implicit lifetime elision in more contexts",
+        "Native async/await without Pin complexity",
+        "30% faster incremental compilation"
+      ],
+      "citations": [
+        { "url": "https://github.com/rust-lang/rfcs/pull/9999", "label": "RFC" },
+        { "url": "https://blog.rust-lang.org/2026/01/13/rust-2.html", "label": "Rust Blog" }
+      ],
+      "confidence": "high",
+      "topic": "Languages",
+      "locked": false
+    },
+    {
+      "rank": 3,
+      "headline": "GitHub Copilot Workspace Now Generally Available",
+      "teaser": "The AI-powered development environment exits beta with new features including automated PR reviews and architecture suggestions.",
+      "takeaway": "This represents a shift from AI as autocomplete to AI as collaborative development partner.",
+      "bullets": [
+        "Multi-file edit suggestions with diff preview",
+        "Automated test generation for changes",
+        "Integration with GitHub Actions for CI feedback"
+      ],
+      "citations": [
+        { "url": "https://github.blog/copilot-workspace-ga", "label": "GitHub" }
+      ],
+      "confidence": "high",
+      "topic": "DevTools",
+      "locked": false
+    },
+    {
+      "rank": 4,
+      "headline": "Critical CVE in OpenSSL 3.4 Affects Major Linux Distributions",
+      "teaser": "A buffer overflow vulnerability in certificate parsing requires immediate patching across enterprise environments.",
+      "takeaway": "Organizations should prioritize patching and review their TLS configurations.",
+      "bullets": [
+        "CVSS score of 9.8 (Critical)",
+        "Patches available for Ubuntu, Debian, RHEL",
+        "No known exploits in the wild yet"
+      ],
+      "citations": [
+        { "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0001", "label": "NVD" },
+        { "url": "https://openssl.org/news/secadv/20260113.txt", "label": "OpenSSL" }
+      ],
+      "confidence": "high",
+      "topic": "Security",
+      "locked": false
+    },
+    {
+      "rank": 5,
+      "headline": "Bun 2.0 Introduces Native Windows Support and SQLite ORM",
+      "teaser": "The JavaScript runtime reaches feature parity across platforms with a built-in database layer.",
+      "takeaway": "Bun is positioning itself as a complete backend solution, not just a Node alternative.",
+      "bullets": [
+        "Full Windows support without WSL",
+        "Built-in SQLite with type-safe queries",
+        "50% memory reduction vs Bun 1.x"
+      ],
+      "citations": [
+        { "url": "https://bun.sh/blog/bun-2.0", "label": "Bun" }
+      ],
+      "confidence": "medium",
+      "topic": "JavaScript",
+      "locked": false
+    },
+    {
+      "rank": 6,
+      "headline": "Vercel Acquires Turborepo Creator for $100M",
+      "teaser": "The acquisition signals continued investment in monorepo tooling and build optimization.",
+      "takeaway": "Enterprise monorepo adoption is accelerating as tooling matures.",
+      "bullets": [],
+      "citations": [
+        { "url": "https://vercel.com/blog/turborepo-acquisition", "label": "Vercel" }
+      ],
+      "confidence": "high",
+      "topic": "Business",
+      "locked": true
+    },
+    {
+      "rank": 7,
+      "headline": "PostgreSQL 17 Beta Ships with Native Vector Search",
+      "teaser": "The world's most advanced open source database adds pgvector-compatible functionality to core.",
+      "takeaway": "This could reduce the need for specialized vector databases in many use cases.",
+      "bullets": [],
+      "citations": [
+        { "url": "https://postgresql.org/about/news/17-beta", "label": "PostgreSQL" }
+      ],
+      "confidence": "medium",
+      "topic": "Databases",
+      "locked": true
+    },
+    {
+      "rank": 8,
+      "headline": "Deno Deploy Launches Edge Functions with 50ms Cold Starts",
+      "teaser": "New V8 isolate pooling achieves near-instant function initialization globally.",
+      "takeaway": "Edge compute is becoming viable for latency-sensitive applications.",
+      "bullets": [],
+      "citations": [
+        { "url": "https://deno.com/blog/edge-functions-launch", "label": "Deno" }
+      ],
+      "confidence": "medium",
+      "topic": "Infrastructure",
+      "locked": true
+    },
+    {
+      "rank": 9,
+      "headline": "React 20 Concurrent Features Reach Stable Status",
+      "teaser": "After years of iteration, Suspense and concurrent rendering are production-ready.",
+      "takeaway": "Teams can now confidently adopt these patterns without experimental flags.",
+      "bullets": [],
+      "citations": [
+        { "url": "https://react.dev/blog/2026/01/13/react-20", "label": "React" }
+      ],
+      "confidence": "medium",
+      "topic": "Frontend",
+      "locked": true
+    },
+    {
+      "rank": 10,
+      "headline": "AWS Announces 40% Price Cut on Lambda",
+      "teaser": "Competitive pressure from Cloudflare and Vercel drives significant serverless cost reduction.",
+      "takeaway": "The serverless market is maturing with commoditization driving down prices.",
+      "bullets": [],
+      "citations": [
+        { "url": "https://aws.amazon.com/blogs/compute/lambda-pricing-2026", "label": "AWS" }
+      ],
+      "confidence": "high",
+      "topic": "Cloud",
+      "locked": true
+    }
+  ],
+  "missed_items": [
+    {
+      "headline": "TypeScript 6.0 Adds Pattern Matching",
+      "teaser": "The long-requested feature finally lands with exhaustiveness checking.",
+      "citations": [
+        { "url": "https://devblogs.microsoft.com/typescript/typescript-6-0", "label": "TypeScript" }
+      ]
+    },
+    {
+      "headline": "Docker Desktop Goes Fully Open Source",
+      "teaser": "After community pressure, Docker removes licensing restrictions for enterprise use.",
+      "citations": [
+        { "url": "https://docker.com/blog/desktop-open-source", "label": "Docker" }
+      ]
+    }
+  ]
+}

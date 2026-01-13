@@ -80,38 +80,41 @@ const breadcrumbSchema = generateBreadcrumbSchema([
   <article class="py-6 sm:py-10" data-issue-date={date} data-is-latest={isLatest} data-has-locked={hasLockedItems}>
     <div class="container">
       {/* Hero header */}
-      <header class="mb-10 sm:mb-12">
+      <header class="mb-10 sm:mb-12 relative overflow-hidden">
+        {/* Subtle watermark */}
+        <div class="hero-watermark select-none pointer-events-none" aria-hidden="true">10</div>
+
         {/* Breadcrumb */}
-        <nav class="flex items-center gap-2 text-xs font-mono text-muted mb-4">
-          <a href="/" class="hover:text-signal transition-colors">noyau</a>
-          <span>/</span>
-          <a href="/archives" class="hover:text-signal transition-colors">archives</a>
-          <span>/</span>
+        <nav class="flex items-center gap-2 text-xs font-mono text-muted mb-4 text-tabular relative z-10">
+          <a href="/" class="hover:text-signal transition-colors duration-smooth">noyau</a>
+          <span class="text-border">/</span>
+          <a href="/archives" class="hover:text-signal transition-colors duration-smooth">archives</a>
+          <span class="text-border">/</span>
           <span class="text-text">{date}</span>
         </nav>
 
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 relative z-10">
           <div>
             {/* Date display */}
             <div class="flex items-center gap-3 mb-2">
               <div class="flex items-center gap-1">
                 <span class="text-muted font-mono text-lg">[</span>
-                <span class="w-2.5 h-2.5 bg-signal rounded-full animate-pulse-subtle"></span>
+                <span class="w-2 h-2 bg-signal rounded-full animate-pulse-subtle"></span>
                 <span class="text-muted font-mono text-lg">]</span>
               </div>
               {isLatest && (
-                <span class="px-2 py-0.5 rounded-full bg-signal/10 text-signal text-xs font-medium border border-signal/20">
+                <span class="px-2.5 py-1 rounded-full bg-signal/10 text-signal text-xs font-medium border border-signal/20">
                   Today's Digest
                 </span>
               )}
             </div>
 
-            <h1 class="text-2xl sm:text-3xl font-bold text-text tracking-tight">
+            <h1 class="text-display text-text text-editorial">
               {formattedDate}
             </h1>
 
             {totalItems > 0 && (
-              <p class="mt-2 text-body text-muted">
+              <p class="mt-3 text-body text-muted">
                 {totalItems} stories ranked by signal
               </p>
             )}
@@ -167,7 +170,7 @@ const breadcrumbSchema = generateBreadcrumbSchema([
         {freeItems.map((item: any, index: number) => (
           <div
             class="opacity-0 animate-fade-in-up"
-            style={`animation-delay: ${index * 100}ms`}
+            style={`animation-delay: ${index * 50}ms`}
           >
             <IssueCard
               rank={item.rank}
@@ -176,7 +179,6 @@ const breadcrumbSchema = generateBreadcrumbSchema([
               takeaway={item.takeaway}
               bullets={item.bullets || []}
               citations={item.citations || []}
-              confidence={item.confidence}
               topic={item.topic}
             />
           </div>
@@ -221,7 +223,7 @@ const breadcrumbSchema = generateBreadcrumbSchema([
         {lockedItems.map((item: any, index: number) => (
           <div
             class="opacity-0 animate-fade-in"
-            style={`animation-delay: ${(freeItems.length + index) * 100}ms`}
+            style={`animation-delay: ${(freeItems.length + index) * 50}ms`}
           >
             <LockedCard rank={item.rank} headline={item.headline} teaser={item.teaser} />
           </div>
@@ -287,6 +289,28 @@ const breadcrumbSchema = generateBreadcrumbSchema([
 
   <Footer slot="footer" />
 </BaseLayout>
+
+<style>
+  .hero-watermark {
+    position: absolute;
+    right: -2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10rem;
+    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+    color: rgba(34, 211, 238, 0.02);
+    line-height: 1;
+    z-index: 0;
+  }
+
+  @media (min-width: 640px) {
+    .hero-watermark {
+      font-size: 14rem;
+      right: 0;
+    }
+  }
+</style>
 
 <script>
   import { trackIssuePageView, trackSoftGateHit, getPageLoadTime } from '../../lib/posthog';

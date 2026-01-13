@@ -6,6 +6,9 @@
   html {
     @apply bg-ink text-text antialiased;
     font-feature-settings: "ss01", "ss02", "cv01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -110,6 +113,7 @@
   .card {
     @apply p-5 sm:p-6 bg-slate border border-border rounded-card;
     @apply transition-all duration-smooth ease-smooth;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
   .card-interactive {
@@ -117,7 +121,22 @@
   }
 
   .card-interactive:hover {
-    @apply border-border-hover bg-slate-hover -translate-y-1 shadow-card-hover;
+    @apply border-border-hover bg-slate-hover shadow-card-hover;
+    transform: translateY(-1px);
+  }
+
+  .card-featured {
+    @apply card cursor-pointer;
+    @apply border-border/80;
+  }
+
+  .card-featured:hover {
+    @apply border-signal/20 bg-slate-hover;
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.15),
+      0 4px 20px -4px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transform: translateY(-1px);
   }
 
   .card-selected {
@@ -130,6 +149,17 @@
     @apply font-mono text-meta font-bold rounded-lg;
     @apply bg-signal-muted text-signal;
     @apply transition-all duration-hover;
+  }
+
+  .rank-badge-lg {
+    @apply inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12;
+    @apply font-mono text-lg sm:text-xl font-bold rounded-xl;
+    @apply transition-all duration-smooth;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  .group:hover .rank-badge-lg {
+    transform: scale(1.02);
   }
 
   .rank-badge-locked {
@@ -201,6 +231,19 @@
     @apply bg-gradient-to-r from-signal to-signal/60 bg-clip-text text-transparent;
   }
 
+  .text-editorial {
+    letter-spacing: -0.025em;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  .text-tabular {
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+
+  .text-tight {
+    letter-spacing: -0.02em;
+  }
+
   /* Link styles */
   .link-subtle {
     @apply text-muted transition-colors duration-hover;
@@ -225,13 +268,17 @@
 }
 
 @layer utilities {
-  /* Animation delays for staggered reveals */
+  /* Animation delays for staggered reveals — subtle 50ms intervals */
+  .delay-50 { animation-delay: 50ms; }
   .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
   .delay-200 { animation-delay: 200ms; }
+  .delay-250 { animation-delay: 250ms; }
   .delay-300 { animation-delay: 300ms; }
+  .delay-350 { animation-delay: 350ms; }
   .delay-400 { animation-delay: 400ms; }
+  .delay-450 { animation-delay: 450ms; }
   .delay-500 { animation-delay: 500ms; }
-  .delay-600 { animation-delay: 600ms; }
 
   /* Hide scrollbar but allow scrolling */
   .scrollbar-hide {
@@ -246,5 +293,16 @@
   /* Safe area padding for mobile */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Reduced motion support — accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

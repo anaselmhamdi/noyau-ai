@@ -10,7 +10,7 @@ from app.core.security import build_magic_link_url, generate_unsubscribe_token
 logger = get_logger(__name__)
 
 # Initialize Jinja2 environment for email templates
-template_dir = Path(__file__).parent.parent / "email" / "templates"
+template_dir = Path(__file__).parent.parent / "emails" / "templates"
 jinja_env = Environment(loader=FileSystemLoader(template_dir), autoescape=True)
 
 
