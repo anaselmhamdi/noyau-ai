@@ -6,11 +6,13 @@ Options:
   --date DATE         Issue date (default: today)
   --count N           Number of videos to generate (default: from config, typically 3)
   --output-dir PATH   Output directory for videos (default: from config)
+  --combined          Generate single combined video instead of individual videos
   --dry-run           Preview without generating videos
 
 Examples:
   python -m app.jobs.video_generate
   python -m app.jobs.video_generate --date 2026-01-13
+  python -m app.jobs.video_generate --combined --dry-run
   python -m app.jobs.video_generate --output-dir /tmp/videos
 """
 
@@ -28,7 +30,11 @@ from app.core.logging import get_logger, setup_logging
 from app.models.cluster import Cluster, ClusterSummary
 from app.schemas.common import Citation
 from app.schemas.llm import ClusterDistillOutput
-from app.video.orchestrator import generate_single_video, get_video_config
+from app.video.orchestrator import (
+    generate_combined_video,
+    generate_single_video,
+    get_video_config,
+)
 
 logger = get_logger(__name__)
 
@@ -91,6 +97,7 @@ async def main(
     issue_date: date | None = None,
     count: int | None = None,
     output_dir: str | None = None,
+    combined: bool = False,
     dry_run: bool = False,
 ) -> None:
     """Run the video generation job."""
@@ -113,10 +120,14 @@ async def main(
     # Use provided output_dir or fall back to config
     output_path = Path(output_dir) if output_dir else Path(video_config.output_dir)
 
+    # Use combined flag or fall back to config
+    use_combined = combined or video_config.combined_mode
+
     logger.bind(
         issue_date=str(issue_date),
         count=count,
         output_dir=str(output_path),
+        combined=use_combined,
         dry_run=dry_run,
     ).info("video_generate_started")
 
@@ -139,9 +150,72 @@ async def main(
 
         print(f"Found {len(clusters_with_summaries)} clusters with summaries")
         print(f"Output directory: {output_path}")
+        print(f"Mode: {'Combined' if use_combined else 'Individual'}")
 
         # Take top N for video generation
         top_clusters = clusters_with_summaries[:count]
+
+        # Combined mode: single video with all stories
+        if use_combined:
+            print(f"Generating combined video for top {len(top_clusters)} stories")
+            print("-" * 40)
+
+            summaries = []
+            topics = []
+            cluster_ids = []
+
+            for cluster in top_clusters:
+                summary = cluster.summary
+                assert summary is not None  # Filtered above
+                print(f"  - {summary.headline[:60]}...")
+                summaries.append(summary_to_distill_output(summary))
+                topics.append(determine_topic(cluster))
+                cluster_ids.append(str(cluster.id))
+
+            if len(summaries) < 3:
+                print(
+                    f"\nError: Need at least 3 stories for combined video, only found {len(summaries)}"
+                )
+                return
+
+            result = await generate_combined_video(
+                summaries=summaries[:3],
+                topics=topics[:3],
+                issue_date=issue_date,
+                cluster_ids=cluster_ids[:3],
+                output_dir=output_path,
+                config=video_config,
+                db=db,
+                dry_run=dry_run,
+            )
+
+            print("\n" + "=" * 40)
+            if dry_run:
+                if result:
+                    print("Dry run complete. Combined script generated:")
+                    print(f"  Hook: {result.script.hook}")
+                    print(f"  Stories: {len(result.script.stories)}")
+                else:
+                    print("Dry run failed - could not generate script")
+            else:
+                if result:
+                    print("Combined video generated successfully!")
+                    print(f"  Path: {result.video_path}")
+                    if result.youtube_url:
+                        print(f"  YouTube: {result.youtube_url}")
+                    if result.s3_url:
+                        print(f"  S3: {result.s3_url}")
+                else:
+                    print("Combined video generation failed")
+
+            logger.bind(
+                issue_date=str(issue_date),
+                combined=True,
+                success=result is not None,
+            ).info("video_generate_completed")
+            return
+
+        # Individual mode: separate video per story
         print(f"Generating videos for top {len(top_clusters)} stories")
         print("-" * 40)
 
@@ -149,6 +223,7 @@ async def main(
 
         for rank, cluster in enumerate(top_clusters, start=1):
             summary = cluster.summary
+            assert summary is not None  # Filtered above
             print(f"\n[{rank}] {summary.headline[:60]}...")
 
             if dry_run:
@@ -162,7 +237,7 @@ async def main(
             topic = determine_topic(cluster)
 
             # Generate video
-            result = await generate_single_video(
+            video_result = await generate_single_video(
                 summary=distill_output,
                 topic=topic,
                 rank=rank,
@@ -174,13 +249,13 @@ async def main(
                 dry_run=False,
             )
 
-            if result:
-                results.append(result)
-                print(f"    ✓ Generated: {result.video_path}")
-                if result.youtube_url:
-                    print(f"    ✓ YouTube: {result.youtube_url}")
-                if result.s3_url:
-                    print(f"    ✓ S3: {result.s3_url}")
+            if video_result:
+                results.append(video_result)
+                print(f"    ✓ Generated: {video_result.video_path}")
+                if video_result.youtube_url:
+                    print(f"    ✓ YouTube: {video_result.youtube_url}")
+                if video_result.s3_url:
+                    print(f"    ✓ S3: {video_result.s3_url}")
             else:
                 print("    ✗ Generation failed")
 
@@ -226,6 +301,11 @@ if __name__ == "__main__":
         help="Output directory for videos. Default: from config",
     )
     parser.add_argument(
+        "--combined",
+        action="store_true",
+        help="Generate single combined video instead of individual videos",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview without generating videos",
@@ -237,6 +317,7 @@ if __name__ == "__main__":
             issue_date=args.date,
             count=args.count,
             output_dir=args.output_dir,
+            combined=args.combined,
             dry_run=args.dry_run,
         )
     )

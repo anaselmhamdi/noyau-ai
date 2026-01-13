@@ -15,16 +15,28 @@ from moviepy import (
 )
 
 from app.core.logging import get_logger
-from app.schemas.video import VideoClip, VideoGenerationResult, VideoScript
+from app.schemas.video import (
+    CombinedVideoGenerationResult,
+    CombinedVideoScript,
+    VideoClip,
+    VideoGenerationResult,
+    VideoScript,
+)
 from app.video.constants import (
     BRAND_FOLLOW_CTA,
     BRAND_INTRO_END,
     BRAND_NAME,
     COLOR_STROKE,
+    COMBINED_BRAND_INTRO_END,
+    COMBINED_CTA_DURATION,
+    COMBINED_HOOK_END,
+    COMBINED_INTRO_END,
     CTA_MAX_DURATION,
     FONT_SIZE_BRAND_INTRO,
     FONT_SIZE_HOOK,
     FONT_SIZE_OUTRO,
+    FONT_SIZE_STORY_HEADLINE,
+    FONT_SIZE_STORY_NUMBER,
     FONT_SIZE_SUBTITLE,
     HOOK_END,
     INTRO_END,
@@ -32,7 +44,11 @@ from app.video.constants import (
     OUTRO_BUFFER,
     POSITION_CENTER_Y,
     POSITION_CTA_Y,
+    POSITION_STORY_HEADLINE_Y,
+    POSITION_STORY_NUMBER_Y,
     POSITION_SUBTITLE_Y,
+    STORY_HEADLINE_DURATION,
+    STORY_TRANSITION_DURATION,
     STROKE_WIDTH_DEFAULT,
     STROKE_WIDTH_SUBTITLE,
     SUBTITLE_MARGIN,
@@ -617,4 +633,287 @@ def compose_video(
 
         traceback.print_exc()
         logger.bind(error=str(e)).error("video_composition_error")
+        return None
+
+
+# -----------------------------------------------------------------------------
+# Combined Multi-Story Video Composition
+# -----------------------------------------------------------------------------
+
+
+@dataclass
+class CombinedTimeline:
+    """Video timeline for combined 3-story video."""
+
+    brand_intro_end: float
+    hook_end: float
+    intro_end: float
+    story_segments: list[tuple[float, float]]  # (start, end) for each story
+    cta_start: float
+    total_duration: float
+
+
+def _calculate_combined_timeline(total_duration: float) -> CombinedTimeline:
+    """
+    Calculate timing for combined video sections.
+
+    Timeline structure (~60s):
+    - 0-2s: Brand intro
+    - 2-5s: Hook
+    - 5-10s: Intro
+    - 10-28s: Story 1 (transition + body)
+    - 28-46s: Story 2 (transition + body)
+    - 46-55s: Story 3 (transition + body)
+    - 55-end: CTA + outro
+    """
+    # Calculate story segment duration
+    stories_start = COMBINED_INTRO_END
+    cta_start = total_duration - COMBINED_CTA_DURATION
+    stories_duration = cta_start - stories_start
+    story_duration = stories_duration / 3
+
+    story_segments = []
+    current_time = stories_start
+    for _ in range(3):
+        story_segments.append((current_time, current_time + story_duration))
+        current_time += story_duration
+
+    return CombinedTimeline(
+        brand_intro_end=COMBINED_BRAND_INTRO_END,
+        hook_end=COMBINED_HOOK_END,
+        intro_end=COMBINED_INTRO_END,
+        story_segments=story_segments,
+        cta_start=cta_start,
+        total_duration=total_duration,
+    )
+
+
+def _create_story_transition_clips(
+    script: CombinedVideoScript,
+    style: StyleConfig,
+    format_config: FormatConfig,
+    timeline: CombinedTimeline,
+) -> list[TextClip]:
+    """
+    Create numbered transition overlays for each story.
+
+    Shows "1", "2", "3" indicators and headline text during transitions.
+    """
+    clips = []
+
+    for i, (story, (start, _end)) in enumerate(
+        zip(script.stories, timeline.story_segments), start=1
+    ):
+        # Large story number indicator
+        number_clip = create_text_clip(
+            str(i),
+            STORY_TRANSITION_DURATION,
+            style,
+            format_config,
+            position=("center", POSITION_STORY_NUMBER_Y),
+            fontsize=FONT_SIZE_STORY_NUMBER,
+        ).with_start(start)
+        clips.append(number_clip)
+
+        # Headline overlay below number
+        headline_clip = create_text_clip(
+            story.headline_text.upper(),
+            STORY_HEADLINE_DURATION,
+            style,
+            format_config,
+            position=("center", POSITION_STORY_HEADLINE_Y),
+            fontsize=FONT_SIZE_STORY_HEADLINE,
+        ).with_start(start)
+        clips.append(headline_clip)
+
+    return clips
+
+
+def _filter_combined_subtitle_clips(
+    subtitle_clips: list[TextClip],
+    timeline: CombinedTimeline,
+) -> list[TextClip]:
+    """
+    Filter out subtitles that overlap with hook, transitions, or CTA sections.
+
+    Args:
+        subtitle_clips: List of subtitle clips
+        timeline: Combined video timeline
+
+    Returns:
+        Filtered list of subtitle clips
+    """
+    filtered = []
+    for clip in subtitle_clips:
+        # Skip subtitles during hook time (brand intro + hook)
+        if clip.start < timeline.hook_end:
+            continue
+        # Skip subtitles during CTA time
+        if clip.start >= timeline.cta_start:
+            continue
+        # Skip subtitles during story transitions (first 3 seconds of each story)
+        skip = False
+        for story_start, _story_end in timeline.story_segments:
+            if story_start <= clip.start < story_start + STORY_HEADLINE_DURATION:
+                skip = True
+                break
+        if skip:
+            continue
+        filtered.append(clip)
+    return filtered
+
+
+def compose_combined_video(
+    script: CombinedVideoScript,
+    audio_path: Path,
+    clips: list[VideoClip],
+    output_path: Path,
+    config: VideoConfigProtocol | None = None,
+    subtitles: list[SubtitleSegment] | None = None,
+    background_music_path: Path | None = None,
+) -> CombinedVideoGenerationResult | None:
+    """
+    Compose a combined 3-story video.
+
+    Similar to compose_video but with:
+    - Story number transitions ("1", "2", "3")
+    - Headline overlays during transitions
+    - Visual dividers between stories
+
+    Args:
+        script: Combined video script with 3 stories
+        audio_path: Path to narration audio
+        clips: List of B-roll clips
+        output_path: Path to save the final video
+        config: Video configuration
+        subtitles: Optional list of subtitle segments with timing
+        background_music_path: Optional path to background music file
+
+    Returns:
+        CombinedVideoGenerationResult, or None if composition failed
+    """
+    actual_config: VideoConfigProtocol
+    if config is None:
+        from app.video.config import VideoConfig as DefaultConfig
+
+        actual_config = DefaultConfig()  # type: ignore[assignment]
+    else:
+        actual_config = config
+    format_config = actual_config.format
+    style = actual_config.style
+
+    try:
+        # Load audio and calculate timeline
+        audio = AudioFileClip(str(audio_path))
+        timeline = _calculate_combined_timeline(audio.duration)
+
+        # Prepare background
+        b_roll_clips = prepare_b_roll_clips(clips, timeline.total_duration, format_config)
+        background = _prepare_background(
+            b_roll_clips, timeline.total_duration, format_config, style
+        )
+
+        # Create text overlays
+        text_clips = [
+            # Brand intro
+            create_text_clip(
+                BRAND_NAME,
+                timeline.brand_intro_end,
+                style,
+                format_config,
+                position=("center", POSITION_CENTER_Y),
+                fontsize=style.font_size + FONT_SIZE_BRAND_INTRO,
+            ),
+            # Hook
+            create_text_clip(
+                script.hook,
+                timeline.hook_end - timeline.brand_intro_end,
+                style,
+                format_config,
+                position=("center", POSITION_CENTER_Y),
+                fontsize=style.font_size + FONT_SIZE_HOOK,
+            ).with_start(timeline.brand_intro_end),
+        ]
+
+        # Add story transition clips (numbers and headlines)
+        text_clips.extend(_create_story_transition_clips(script, style, format_config, timeline))
+
+        # Add CTA and outro
+        cta_clip = create_text_clip(
+            script.cta,
+            min(CTA_MAX_DURATION, timeline.total_duration - timeline.cta_start),
+            style,
+            format_config,
+            position=("center", POSITION_CTA_Y),
+            fontsize=style.font_size,
+        ).with_start(timeline.cta_start)
+        text_clips.append(cta_clip)
+
+        # Brand outro
+        outro_start = timeline.cta_start + CTA_MAX_DURATION
+        if outro_start < timeline.total_duration:
+            outro_clip = create_text_clip(
+                BRAND_FOLLOW_CTA,
+                timeline.total_duration - outro_start,
+                style,
+                format_config,
+                position=("center", POSITION_CENTER_Y),
+                fontsize=style.font_size + FONT_SIZE_OUTRO,
+            ).with_start(outro_start)
+            text_clips.append(outro_clip)
+
+        # Create and filter subtitle clips
+        subtitle_clips = []
+        if subtitles:
+            subtitle_clips = create_subtitle_clips(subtitles, style, format_config)
+            subtitle_clips = _filter_combined_subtitle_clips(subtitle_clips, timeline)
+            logger.bind(subtitle_count=len(subtitle_clips)).info("combined_subtitle_clips_created")
+        else:
+            logger.warning("no_subtitles_provided_for_combined")
+
+        # Compose all layers
+        final_video = CompositeVideoClip(
+            [background] + text_clips + subtitle_clips,
+            size=(format_config.width, format_config.height),
+        )
+
+        # Mix audio with background music and attach
+        mixed_audio = mix_audio_with_background(audio, background_music_path)
+        final_video = final_video.with_audio(mixed_audio)
+
+        # Write output
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        final_video.write_videofile(
+            str(output_path),
+            fps=format_config.fps,
+            codec="libx264",
+            audio_codec="aac",
+            preset="medium",
+            threads=4,
+            logger=None,
+        )
+
+        # Clean up resources
+        audio.close()
+        final_video.close()
+        for clip in b_roll_clips:
+            clip.close()
+
+        logger.bind(
+            output=str(output_path),
+            duration=timeline.total_duration,
+        ).info("combined_video_composed_successfully")
+
+        return CombinedVideoGenerationResult(
+            video_path=str(output_path),
+            duration_seconds=timeline.total_duration,
+            script=script,
+            story_headlines=[s.headline_text for s in script.stories],
+        )
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        logger.bind(error=str(e)).error("combined_video_composition_error")
         return None

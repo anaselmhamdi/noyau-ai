@@ -277,7 +277,7 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
             # =====================================================================
             # DISPATCH: Video Generation (YouTube)
             # =====================================================================
-            video_results = []
+            video_results: list = []
             if config.video.enabled:
                 try:
                     ranked_with_summaries = result.get("ranked_with_summaries", [])

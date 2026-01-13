@@ -342,6 +342,10 @@ class VideoConfig:
         )
         self.tts_provider: str = settings.tts_provider
 
+        # Combined video mode settings
+        self.combined_mode: bool = data.get("combined_mode", False)
+        self.combined_duration_target: int = data.get("combined_duration_target", 60)
+
         # Sub-configs from config.yml
         self.format = VideoFormatConfig(data.get("format", {}))
         self.style = VideoStyleConfig(data.get("style", {}))

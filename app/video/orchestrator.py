@@ -16,13 +16,24 @@ from app.core.logging import get_logger
 from app.models.video import Video, VideoStatus
 from app.pipeline.topics import detect_topic_from_identity
 from app.schemas.llm import ClusterDistillOutput
-from app.schemas.video import VideoClip, VideoGenerationResult, VideoScript
+from app.schemas.video import (
+    CombinedVideoGenerationResult,
+    VideoClip,
+    VideoGenerationResult,
+    VideoScript,
+)
 from app.services.storage_service import get_storage_service
 from app.video.background_music import fetch_background_music
-from app.video.compositor import compose_video
-from app.video.script_generator import generate_script
+from app.video.compositor import compose_combined_video, compose_video
+from app.video.script_generator import generate_combined_script, generate_script
 from app.video.stock_footage import fetch_clips_for_script
-from app.video.tts import SubtitleSegment, TTSResult, generate_srt, synthesize_script
+from app.video.tts import (
+    SubtitleSegment,
+    TTSResult,
+    generate_srt,
+    synthesize_combined_script,
+    synthesize_script,
+)
 from app.video.uploader import YouTubeUploader, create_video_metadata
 
 logger = get_logger(__name__)
@@ -74,6 +85,8 @@ class VideoConfigLocal:
     enabled: bool = False
     count: int = 3
     output_dir: str = "./output/videos"
+    combined_mode: bool = False
+    combined_duration_target: int = 60
     format: VideoFormatConfig = field(default_factory=VideoFormatConfig)
     style: VideoStyleConfig = field(default_factory=VideoStyleConfig)
     youtube: YouTubeConfigLocal = field(default_factory=YouTubeConfigLocal)
@@ -88,6 +101,8 @@ def get_video_config() -> VideoConfigLocal:
         enabled=video_cfg.enabled,
         count=video_cfg.count,
         output_dir=video_cfg.output_dir,
+        combined_mode=video_cfg.combined_mode,
+        combined_duration_target=video_cfg.combined_duration_target,
         format=VideoFormatConfig(
             width=video_cfg.format.width,
             height=video_cfg.format.height,
@@ -564,9 +579,13 @@ async def generate_videos_for_issue(
     ranked_with_summaries: list[tuple],
     db: AsyncSession | None = None,
     dry_run: bool = False,
-) -> list[VideoGenerationResult]:
+) -> list[VideoGenerationResult | CombinedVideoGenerationResult]:
     """
     Generate videos for the top stories in an issue.
+
+    Based on config.combined_mode:
+    - False: Generate individual videos for each story (default)
+    - True: Generate a single combined video with all stories
 
     Args:
         issue_date: Date of the issue
@@ -575,7 +594,7 @@ async def generate_videos_for_issue(
         dry_run: If True, skip actual generation
 
     Returns:
-        List of VideoGenerationResult objects
+        List of VideoGenerationResult or CombinedVideoGenerationResult objects
     """
     config = get_video_config()
 
@@ -584,12 +603,47 @@ async def generate_videos_for_issue(
         return []
 
     output_dir = Path(config.output_dir)
-    results = []
 
     # Take top N stories for video generation
     top_stories = ranked_with_summaries[: config.count]
 
+    # Combined mode: single video with all stories
+    if config.combined_mode:
+        logger.bind(count=len(top_stories)).info("starting_combined_video_generation")
+
+        summaries = []
+        topics = []
+        cluster_ids = []
+
+        for identity, items, score_info, distill_result in top_stories:
+            if not distill_result:
+                continue
+            summaries.append(distill_result.output)
+            topics.append(_determine_topic(identity, score_info))
+            cluster_ids.append(_get_cluster_id(items, identity))
+
+        if len(summaries) < 3:
+            logger.warning(f"not_enough_stories_for_combined_video: {len(summaries)}")
+            return []
+
+        result = await generate_combined_video(
+            summaries=summaries[:3],
+            topics=topics[:3],
+            issue_date=issue_date,
+            cluster_ids=cluster_ids[:3],
+            output_dir=output_dir,
+            config=config,
+            db=db,
+            dry_run=dry_run,
+        )
+
+        if result:
+            return [result]
+        return []
+
+    # Individual mode: separate video per story
     logger.bind(count=len(top_stories)).info("starting_video_generation")
+    results: list[VideoGenerationResult | CombinedVideoGenerationResult] = []
 
     for rank, (identity, items, score_info, distill_result) in enumerate(top_stories, start=1):
         if not distill_result:
@@ -606,7 +660,7 @@ async def generate_videos_for_issue(
         # Get cluster_id from items if available
         cluster_id = _get_cluster_id(items, identity)
 
-        result = await generate_single_video(
+        video_result = await generate_single_video(
             summary=summary,
             topic=topic,
             rank=rank,
@@ -618,8 +672,8 @@ async def generate_videos_for_issue(
             dry_run=dry_run,
         )
 
-        if result:
-            results.append(result)
+        if video_result:
+            results.append(video_result)
 
     logger.bind(
         total=len(top_stories),
@@ -627,6 +681,216 @@ async def generate_videos_for_issue(
     ).info("video_generation_complete")
 
     return results
+
+
+# -----------------------------------------------------------------------------
+# Combined Video Generation
+# -----------------------------------------------------------------------------
+
+
+async def generate_combined_video(
+    summaries: list[ClusterDistillOutput],
+    topics: list[str],
+    issue_date: date,
+    cluster_ids: list[str],
+    output_dir: Path,
+    config: VideoConfigLocal,
+    db: AsyncSession | None = None,
+    dry_run: bool = False,
+) -> CombinedVideoGenerationResult | None:
+    """
+    Generate a single combined video from top 3 stories.
+
+    Pipeline:
+    1. Generate combined script via LLM
+    2. Synthesize TTS audio
+    3. Fetch B-roll for all 3 stories
+    4. Compose video with story transitions
+    5. Upload to S3/YouTube
+
+    Args:
+        summaries: List of exactly 3 distilled cluster summaries
+        topics: List of topic categories for each story
+        issue_date: Date of the issue
+        cluster_ids: List of cluster IDs
+        output_dir: Directory for output files
+        config: Video configuration
+        db: Optional database session for tracking
+        dry_run: If True, skip actual generation
+
+    Returns:
+        CombinedVideoGenerationResult, or None if generation failed
+    """
+    video_dir = output_dir / issue_date.isoformat() / "combined"
+    video_dir.mkdir(parents=True, exist_ok=True)
+
+    log = logger.bind(type="combined", story_count=len(summaries))
+
+    try:
+        # Step 1: Generate combined script
+        log.info("generating_combined_script")
+        script_result = await generate_combined_script(summaries, topics)
+        if not script_result:
+            log.warning("combined_script_generation_failed")
+            return None
+
+        script = script_result.script
+
+        if dry_run:
+            log.info("dry_run_combined_script_generated")
+            return CombinedVideoGenerationResult(
+                video_path="<dry-run>",
+                duration_seconds=config.combined_duration_target,
+                script=script,
+                story_headlines=[s.headline for s in summaries],
+            )
+
+        # Step 2: Synthesize audio
+        log.info("synthesizing_combined_audio")
+        audio_path = video_dir / "narration.mp3"
+        tts_result = await synthesize_combined_script(script, audio_path, provider="edge")
+        if not tts_result:
+            log.warning("combined_audio_synthesis_failed")
+            return None
+
+        # Save SRT file for reference
+        srt_path = video_dir / "subtitles.srt"
+        generate_srt(tts_result.subtitles, srt_path)
+
+        # Step 3: Fetch B-roll for all stories
+        log.info("fetching_combined_stock_footage")
+        all_keywords = []
+        for story in script.stories:
+            all_keywords.extend(story.visual_keywords)
+
+        clips_dir = video_dir / "clips"
+        clips = await fetch_clips_for_script(
+            keywords=all_keywords,
+            duration_needed=tts_result.duration,
+            output_dir=clips_dir,
+        )
+
+        # Step 4: Fetch background music
+        log.info("fetching_background_music")
+        background_music_path = await fetch_background_music(
+            topic="digest",  # Use digest-specific music
+            duration_needed=tts_result.duration,
+            output_dir=video_dir,
+        )
+
+        # Step 5: Compose combined video
+        log.info("composing_combined_video")
+        video_path = video_dir / "noyau_digest.mp4"
+        result = compose_combined_video(
+            script=script,
+            audio_path=audio_path,
+            clips=clips,
+            output_path=video_path,
+            config=config,  # type: ignore[arg-type]
+            subtitles=tts_result.subtitles,
+            background_music_path=background_music_path,
+        )
+
+        if not result:
+            log.warning("combined_video_composition_failed")
+            return None
+
+        # Step 6: Upload to S3
+        s3_url = await _step_upload_s3(video_path, issue_date, rank=0, log=log)
+        if s3_url:
+            result.s3_url = s3_url
+
+        # Step 7: Upload to YouTube with combined metadata
+        youtube_result = await _step_upload_combined_youtube(
+            video_path, summaries, issue_date, config.youtube, log
+        )
+        if youtube_result:
+            result.youtube_video_id, result.youtube_url = youtube_result
+
+        # Cleanup temporary clips
+        if clips_dir.exists():
+            shutil.rmtree(clips_dir)
+
+        # Cleanup entire video directory after successful YouTube upload
+        if youtube_result:
+            log.info("cleaning_up_combined_video_files")
+            shutil.rmtree(video_dir)
+
+        return result
+
+    except Exception as e:
+        log.bind(error=str(e)).error("combined_video_generation_error")
+        return None
+
+
+async def _step_upload_combined_youtube(
+    video_path: Path,
+    summaries: list[ClusterDistillOutput],
+    issue_date: date,
+    config: YouTubeConfigLocal,
+    log: "Logger",
+) -> tuple[str, str] | None:
+    """
+    Upload combined video to YouTube with digest metadata.
+
+    Args:
+        video_path: Path to video file
+        summaries: List of cluster summaries for metadata
+        issue_date: Date of the issue
+        config: YouTube configuration
+        log: Bound logger instance
+
+    Returns:
+        Tuple of (video_id, video_url) if successful, None otherwise
+    """
+    log.info("uploading_combined_to_youtube")
+
+    date_str = issue_date.strftime("%B %d, %Y")
+
+    title = f"Tech News Daily Digest - {date_str} | Noyau News"
+    if len(title) > 100:
+        title = f"Daily Tech Digest - {date_str} | Noyau"
+
+    headlines = [s.headline[:60] for s in summaries]
+    description = f"""Your daily tech briefing for {date_str}.
+
+Today's stories:
+1. {headlines[0]}
+2. {headlines[1]}
+3. {headlines[2]}
+
+Subscribe for daily tech updates.
+
+Website: https://noyau.news
+Twitter: https://twitter.com/NoyauNews
+Discord: https://discord.gg/YCbuNqFucb
+
+#technews #programming #developer #noyau #dailydigest
+"""
+
+    tags = config.default_tags + ["daily digest", "tech briefing"]
+
+    from app.schemas.video import YouTubeMetadata
+
+    metadata = YouTubeMetadata(
+        title=title[:100],
+        description=description,
+        tags=tags,
+        category_id=config.category_id,
+        privacy_status=config.privacy_status,
+        made_for_kids=config.made_for_kids,
+    )
+
+    uploader = YouTubeUploader(config=config)
+    upload_result = await uploader.upload_video(video_path, metadata)
+
+    if upload_result:
+        video_id, video_url = upload_result
+        log.bind(youtube_url=video_url).info("combined_video_published_to_youtube")
+        return video_id, video_url
+
+    log.warning("combined_youtube_upload_failed")
+    return None
 
 
 def _determine_topic(identity: str, score_info: dict) -> str:

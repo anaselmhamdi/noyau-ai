@@ -101,6 +101,8 @@ class VideoConfig:
     enabled: bool = False
     count: int = 3
     output_dir: str = "./output/videos"
+    combined_mode: bool = False  # Single combined video vs individual videos
+    combined_duration_target: int = 60  # Target duration for combined video (seconds)
     format: VideoFormatConfig = field(default_factory=VideoFormatConfig)
     style: VideoStyleConfig = field(default_factory=VideoStyleConfig)
     stock_footage: StockFootageConfig = field(default_factory=StockFootageConfig)
@@ -113,6 +115,8 @@ class VideoConfig:
             enabled=data.get("enabled", False),
             count=data.get("count", 3),
             output_dir=data.get("output_dir", "./output/videos"),
+            combined_mode=data.get("combined_mode", False),
+            combined_duration_target=data.get("combined_duration_target", 60),
             format=VideoFormatConfig(**data.get("format", {})),
             style=VideoStyleConfig(**data.get("style", {})),
             stock_footage=StockFootageConfig(**data.get("stock_footage", {})),

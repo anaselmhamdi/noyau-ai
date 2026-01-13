@@ -39,3 +39,21 @@ SUBTITLE_WIDTH_MARGIN = 100
 # Brand text constants
 BRAND_NAME = "NOYAU NEWS"
 BRAND_FOLLOW_CTA = "FOLLOW @NOYAUNEWS"
+
+# Combined video timeline constants
+COMBINED_BRAND_INTRO_END = 2.0
+COMBINED_HOOK_END = 5.0
+COMBINED_INTRO_END = 10.0
+COMBINED_CTA_DURATION = 5.0
+
+# Story segment timing for combined video
+STORY_TRANSITION_DURATION = 2.5  # Duration for "Story one." transition
+STORY_HEADLINE_DURATION = 3.0  # Duration for headline overlay
+
+# Combined video font sizes
+FONT_SIZE_STORY_NUMBER = 72  # Large number for story indicators (1, 2, 3)
+FONT_SIZE_STORY_HEADLINE = 40  # Story headline overlay
+
+# Combined video positions
+POSITION_STORY_NUMBER_Y = 0.35
+POSITION_STORY_HEADLINE_Y = 0.50

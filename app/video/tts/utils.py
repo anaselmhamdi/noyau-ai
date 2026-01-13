@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.schemas.video import VideoScript
+from app.schemas.video import CombinedVideoScript, VideoScript
 from app.video.tts.base import SubtitleSegment, TTSProvider, TTSResult
 from app.video.tts.edge_tts import EdgeTTS
 from app.video.tts.elevenlabs_tts import ElevenLabsTTS
@@ -44,6 +44,27 @@ async def synthesize_script(
     """
     tts = get_tts_provider(provider)
     text = tts.format_script_for_narration(script)
+    return await tts.synthesize(text, output_path)
+
+
+async def synthesize_combined_script(
+    script: CombinedVideoScript,
+    output_path: Path,
+    provider: str = "edge",
+) -> TTSResult | None:
+    """
+    Synthesize a combined video script to audio with subtitles.
+
+    Args:
+        script: Combined video script to synthesize
+        output_path: Path to save the audio file
+        provider: TTS provider name
+
+    Returns:
+        TTSResult with audio path, duration, and subtitles, or None if failed
+    """
+    tts = get_tts_provider(provider)
+    text = tts.format_combined_script_for_narration(script)
     return await tts.synthesize(text, output_path)
 
 

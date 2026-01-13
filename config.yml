@@ -339,7 +339,7 @@ tiktok:
 # Credentials configured via environment variables (see .env.example)
 instagram:
   enabled: true  # Set to true once API credentials are configured
-  reels_per_day: 1  # Number of Reels to post daily (top N)
+  reels_per_day: 3  # Number of Reels to post daily (top N)
   include_hashtags: true
   default_hashtags:
     - "technews"
@@ -354,6 +354,8 @@ video:
   enabled: true  # Set to true once Pexels + YouTube credentials are configured
   count: 3  # Number of videos to generate daily (top N stories)
   output_dir: "./output/videos"  # Directory for generated videos
+  combined_mode: true  # Single combined video with all stories (vs individual videos)
+  combined_duration_target: 60  # Target duration for combined video (seconds)
 
   # Video format (YouTube Shorts specs)
   format:
@@ -365,7 +367,7 @@ video:
 
   # Visual style
   style:
-    font: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    font: ""  # Auto-detect based on OS
     font_size: 48
     font_color: "#FFFFFF"
     background_color: "#0A0A0A"

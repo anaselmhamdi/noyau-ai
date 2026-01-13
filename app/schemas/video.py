@@ -4,6 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# -----------------------------------------------------------------------------
+# Single-Story Video Schemas
+# -----------------------------------------------------------------------------
+
 
 class VideoScript(BaseModel):
     """Script for a short-form video."""
@@ -85,3 +89,58 @@ class YouTubeMetadata(BaseModel):
     category_id: str = "28"  # Science & Technology
     privacy_status: Literal["public", "unlisted", "private"] = "unlisted"
     made_for_kids: bool = False
+
+
+# -----------------------------------------------------------------------------
+# Combined Multi-Story Video Schemas
+# -----------------------------------------------------------------------------
+
+
+class StorySegment(BaseModel):
+    """A single story segment within a combined video."""
+
+    story_number: int = Field(ge=1, le=3, description="Story number (1, 2, or 3)")
+    transition: str = Field(
+        description="Transition phrase introducing the story (e.g., 'Story one.', 'Next up.', 'And finally.')"
+    )
+    headline_text: str = Field(
+        description="Brief headline overlay text (5-8 words, shown during transition)"
+    )
+    body: str = Field(description="Main content for this story, ~15-18 seconds of narration")
+    visual_keywords: list[str] = Field(description="2-3 keywords for B-roll for this segment")
+
+
+class CombinedVideoScript(BaseModel):
+    """Script for a combined multi-story video (~60 seconds)."""
+
+    hook: str = Field(description="Opening hook for entire video, 2-3 seconds")
+    intro: str = Field(description="Brief intro setting up the digest, 3-5 seconds")
+    stories: list[StorySegment] = Field(
+        min_length=3, max_length=3, description="Exactly 3 story segments"
+    )
+    cta: str = Field(description="Unified call-to-action, 3-5 seconds")
+    topic: Literal["digest", "dev", "security", "oss", "ai", "cloud", "general"] = Field(
+        default="digest", description="Primary topic category (usually 'digest' for combined)"
+    )
+
+
+class CombinedVideoScriptResult(BaseModel):
+    """Result of combined script generation including token usage."""
+
+    script: CombinedVideoScript
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+class CombinedVideoGenerationResult(BaseModel):
+    """Result of combined video generation."""
+
+    video_path: str
+    duration_seconds: float
+    script: CombinedVideoScript
+    story_headlines: list[str]  # Headlines of included stories
+    thumbnail_path: str | None = None
+    s3_url: str | None = None
+    youtube_video_id: str | None = None
+    youtube_url: str | None = None

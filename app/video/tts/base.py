@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.schemas.video import VideoScript
+from app.schemas.video import CombinedVideoScript, VideoScript
 
 
 @dataclass
@@ -65,4 +65,39 @@ class TTSProvider(ABC):
             "...",  # Pause before outro
             self.BRAND_OUTRO,
         ]
+        return " ".join(parts)
+
+    def format_combined_script_for_narration(self, script: CombinedVideoScript) -> str:
+        """
+        Format a combined video script for natural narration.
+
+        Adds branded intro/outro and pauses between sections and stories.
+        """
+        parts = [
+            self.BRAND_INTRO,
+            "...",  # Pause after brand intro
+            script.hook,
+            "...",  # Pause after hook
+            script.intro,
+            "...",  # Pause before stories
+        ]
+
+        for story in script.stories:
+            parts.extend(
+                [
+                    story.transition,
+                    "...",  # Pause after transition
+                    story.body,
+                    "...",  # Pause between stories
+                ]
+            )
+
+        parts.extend(
+            [
+                script.cta,
+                "...",  # Pause before outro
+                self.BRAND_OUTRO,
+            ]
+        )
+
         return " ".join(parts)
