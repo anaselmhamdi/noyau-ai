@@ -29,9 +29,11 @@ from app.core.logging import get_logger, setup_logging
 from app.models.cluster import Cluster, ClusterSummary
 from app.models.user import User
 from app.pipeline.issue_builder import build_daily_issue, get_missed_from_yesterday
+from app.services.discord_dm_service import send_discord_digests
 from app.services.discord_service import send_discord_digest, send_discord_error
 from app.services.email_service import send_daily_digest
 from app.services.instagram_service import send_instagram_reels
+from app.services.slack_dm_service import send_slack_digests
 from app.services.tiktok_service import send_tiktok_videos
 from app.services.twitter_service import send_twitter_digest
 from app.video.orchestrator import generate_videos_for_issue
@@ -214,7 +216,7 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                 logger.info("email_dispatch_skipped")
 
             # =====================================================================
-            # DISPATCH: Discord
+            # DISPATCH: Discord (channel webhook)
             # =====================================================================
             try:
                 discord_sent = await send_discord_digest(issue_date, items)
@@ -225,6 +227,38 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                 logger.bind(error=str(e)).error("discord_send_failed")
                 dispatch_results["discord"] = False
                 await _notify_dispatch_error("Discord", e)
+
+            # =====================================================================
+            # DISPATCH: Discord DMs (bot subscriptions)
+            # =====================================================================
+            if config.discord_bot.enabled:
+                try:
+                    dm_result = await send_discord_digests(issue_date, items)
+                    if dm_result.sent > 0:
+                        logger.bind(sent=dm_result.sent, failed=dm_result.failed).info(
+                            "discord_dms_sent"
+                        )
+                    dispatch_results["discord_dm"] = dm_result.success
+                except Exception as e:
+                    logger.bind(error=str(e)).error("discord_dm_send_failed")
+                    dispatch_results["discord_dm"] = False
+                    await _notify_dispatch_error("Discord DM", e)
+
+            # =====================================================================
+            # DISPATCH: Slack DMs
+            # =====================================================================
+            if config.slack.enabled:
+                try:
+                    slack_result = await send_slack_digests(issue_date, items)
+                    if slack_result.sent > 0:
+                        logger.bind(sent=slack_result.sent, failed=slack_result.failed).info(
+                            "slack_dms_sent"
+                        )
+                    dispatch_results["slack_dm"] = slack_result.success
+                except Exception as e:
+                    logger.bind(error=str(e)).error("slack_dm_send_failed")
+                    dispatch_results["slack_dm"] = False
+                    await _notify_dispatch_error("Slack DM", e)
 
             # =====================================================================
             # DISPATCH: Twitter

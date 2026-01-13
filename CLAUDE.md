@@ -152,6 +152,8 @@ Tests use SQLite in-memory (aiosqlite) for speed. Key fixtures in `tests/conftes
 - **X/Twitter**: https://x.com/NoyauNews
 - **YouTube**: https://www.youtube.com/channel/UC8ObkWnKP4UPzi2qku2TlXw
 - **Discord**: https://discord.gg/YCbuNqFucb
+- **TikTok**: https://tiktok.com/@noyaunews
+- **Instagram**: https://instagram.com/NoyauNews
 
 ## Development Guidelines
 

@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     discord_bot_token: str = Field(default="")
     discord_application_id: str = Field(default="")
 
+    # Slack App (for DM subscriptions)
+    slack_client_id: str = Field(default="")
+    slack_client_secret: str = Field(default="")
+    slack_signing_secret: str = Field(default="")
+
     # Video Generation
     video_enabled: bool = Field(default=False)
     video_output_dir: str = Field(default="./output/videos")
@@ -198,6 +203,21 @@ class DiscordBotConfig:
         self.bot_token: str = settings.discord_bot_token
         self.application_id: str = settings.discord_application_id
         self.post_time_utc: str = data.get("post_time_utc", "07:30")
+        self.invite_url: str = data.get("invite_url", "")
+
+
+class SlackConfig:
+    """Slack App configuration for DM subscriptions."""
+
+    def __init__(self, data: dict[str, Any], settings: "Settings") -> None:
+        self.enabled: bool = data.get("enabled", False)
+        self.client_id: str = settings.slack_client_id
+        self.client_secret: str = settings.slack_client_secret
+        self.signing_secret: str = settings.slack_signing_secret
+        self.post_time_utc: str = data.get("post_time_utc", "07:30")
+        self.scopes: list[str] = data.get(
+            "scopes", ["chat:write", "users:read", "users:read.email"]
+        )
 
 
 class TwitterConfig:
@@ -357,6 +377,7 @@ class AppConfig:
         self.nitter = NitterConfig(data.get("nitter", {}))
         self.discord = DiscordConfig(data.get("discord", {}), self.settings)
         self.discord_bot = DiscordBotConfig(data.get("discord_bot", {}), self.settings)
+        self.slack = SlackConfig(data.get("slack", {}), self.settings)
         self.twitter = TwitterConfig(data.get("twitter", {}), self.settings)
         self.tiktok = TikTokConfig(data.get("tiktok", {}), self.settings)
         self.instagram = InstagramConfig(data.get("instagram", {}), self.settings)

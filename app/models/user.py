@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.messaging import MessagingConnection
 
 
 class User(Base, TimestampMixin):
@@ -20,7 +26,10 @@ class User(Base, TimestampMixin):
     is_subscribed: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
-    sessions: Mapped[list["Session"]] = relationship(back_populates="user", lazy="selectin")
+    sessions: Mapped[list[Session]] = relationship(back_populates="user", lazy="selectin")
+    messaging_connections: Mapped[list[MessagingConnection]] = relationship(
+        back_populates="user", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.email}>"
@@ -54,7 +63,7 @@ class Session(Base, TimestampMixin):
     expires_at: Mapped[datetime] = mapped_column()
 
     # Relationships
-    user: Mapped["User"] = relationship(back_populates="sessions", lazy="selectin")
+    user: Mapped[User] = relationship(back_populates="sessions", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Session {self.id}>"

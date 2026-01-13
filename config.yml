@@ -282,9 +282,21 @@ discord:
 # Users add bot to their server, run /subscribe to get daily digest DMs
 # Credentials configured via environment variables (see .env.example)
 discord_bot:
-  enabled: false  # Set to true once bot token is configured
+  enabled: true  # Set to true once bot token is configured
   post_time_utc: "07:30"  # When to send DMs (same as channel post)
   invite_url: "https://discord.com/oauth2/authorize?client_id=1460418290143723541&permissions=2048&scope=bot%20applications.commands"
+
+# Slack App for DM subscriptions
+# Users install the app via OAuth and receive daily digest DMs
+# Credentials configured via environment variables (see .env.example)
+# Setup: Create app at https://api.slack.com/apps
+slack:
+  enabled: true  # Set to true once credentials are configured
+  post_time_utc: "07:30"
+  scopes:
+    - chat:write
+    - users:read
+    - users:read.email
 
 # Twitter thread posting for daily digest
 # Uses Twitter API v2 with OAuth 1.0a User Context
