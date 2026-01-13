@@ -176,6 +176,7 @@ class NitterConfig:
     """Nitter configuration from config.yml."""
 
     def __init__(self, data: dict[str, Any]) -> None:
+        self.enabled: bool = data.get("enabled", True)
         self.instances: list[str] = data.get(
             "instances",
             ["nitter.poast.org", "nitter.privacydev.net"],

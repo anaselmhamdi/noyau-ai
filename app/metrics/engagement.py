@@ -41,6 +41,10 @@ def calculate_engagement(metrics: dict[str, Any], source: str) -> float:
         return float(metrics.get("stars", 0) + metrics.get("forks", 0))
     elif source == "devto":
         return float(metrics.get("reactions", 0) + 2 * metrics.get("comments", 0))
+    elif source == "bluesky":
+        return float(
+            metrics.get("likes", 0) + 2 * metrics.get("reposts", 0) + metrics.get("replies", 0)
+        )
     return 0.0
 
 

@@ -23,10 +23,11 @@ def create_all_fetchers(config: AppConfig) -> list[BaseFetcher]:
     # RSS and GitHub releases
     fetchers.extend(create_rss_fetchers(config))
 
-    # Nitter for X/Twitter
-    nitter = create_nitter_fetcher(config)
-    if nitter:
-        fetchers.append(nitter)
+    # Nitter for X/Twitter (check enabled flag)
+    if config.nitter.enabled:
+        nitter = create_nitter_fetcher(config)
+        if nitter:
+            fetchers.append(nitter)
 
     # Reddit
     reddit = create_reddit_fetcher(config)

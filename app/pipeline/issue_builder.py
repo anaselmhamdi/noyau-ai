@@ -52,16 +52,16 @@ async def get_items_for_window(
     return items
 
 
-async def get_x_items(
+async def get_social_items(
     db: AsyncSession,
     hours: int = 24,
 ) -> list[ContentItem]:
-    """Get X/Twitter items for echo detection."""
+    """Get X/Twitter and Bluesky items for echo detection."""
     cutoff = get_cutoff(hours=hours)
 
     result = await db.execute(
         select(ContentItem)
-        .where(ContentItem.source == ContentSource.X)
+        .where(ContentItem.source.in_([ContentSource.X, ContentSource.BLUESKY]))
         .where(ContentItem.published_at >= cutoff)
     )
 
@@ -137,6 +137,12 @@ async def build_historical_metrics(
                     eng = metrics.get("stars", 0) + metrics.get("forks", 0)
                 elif source == ContentSource.DEVTO:
                     eng = metrics.get("reactions", 0) + 2 * metrics.get("comments", 0)
+                elif source == ContentSource.BLUESKY:
+                    eng = (
+                        metrics.get("likes", 0)
+                        + 2 * metrics.get("reposts", 0)
+                        + metrics.get("replies", 0)
+                    )
                 else:
                     eng = 0.0
 
@@ -348,7 +354,7 @@ async def build_daily_issue(
 
     # Step 4: Build scorer with historical data
     historical = await build_historical_metrics(db)
-    x_items = await get_x_items(db)
+    social_items = await get_social_items(db)
     published_clusters = await get_all_published_clusters(db)
 
     # Hard exclusion: filter out clusters that were already published
@@ -367,7 +373,7 @@ async def build_daily_issue(
     scorer = ClusterScorer(
         config=config,
         historical=historical,
-        x_items=x_items,
+        x_items=social_items,
         yesterday_clusters=set(),  # Empty since we do hard exclusion above
     )
 
