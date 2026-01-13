@@ -12,8 +12,12 @@ This job:
 5. Distills top 10 clusters with LLM
 6. Saves issue to database (skipped with --dry-run)
 7. Writes public JSON for static site (skipped with --dry-run)
-8. Sends daily digest emails (skipped with --dry-run)
-9. Generates short-form videos for top 3 stories (if enabled)
+8. Generates short-form videos for top 3 stories (if enabled)
+9. Generates podcast audio for top 5 stories (if enabled)
+10. Dispatches to all channels (email, Discord, Slack, Twitter, TikTok, Instagram)
+
+Note: Video and podcast generation run BEFORE dispatchers so all channels
+have access to media URLs.
 """
 
 import argparse
@@ -202,6 +206,51 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
             dispatch_results: dict[str, bool] = {}
 
             # =====================================================================
+            # GENERATE: Video (YouTube) - must run before dispatchers
+            # =====================================================================
+            video_results: list = []
+            if config.video.enabled:
+                try:
+                    ranked_with_summaries = result.get("ranked_with_summaries", [])
+                    video_results = await generate_videos_for_issue(
+                        issue_date=issue_date,
+                        ranked_with_summaries=ranked_with_summaries,
+                        db=db,
+                        dry_run=False,
+                    )
+                    videos_published = sum(1 for v in video_results if v.youtube_video_id)
+                    logger.bind(
+                        videos_generated=len(video_results),
+                        videos_published=videos_published,
+                    ).info("videos_generated")
+                    dispatch_results["youtube"] = videos_published > 0
+                except Exception as e:
+                    logger.bind(error=str(e)).error("video_generation_failed")
+                    dispatch_results["youtube"] = False
+                    await _notify_dispatch_error("YouTube/Video", e)
+
+            # =====================================================================
+            # GENERATE: Podcast - must run before dispatchers
+            # =====================================================================
+            if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
+                try:
+                    podcast_result = await generate_podcast_for_issue(
+                        db=db,
+                        issue_date=issue_date,
+                        skip_video=False,
+                    )
+                    if podcast_result.get("success"):
+                        logger.bind(
+                            audio_url=podcast_result.get("audio_url"),
+                            duration=podcast_result.get("duration_seconds"),
+                        ).info("podcast_generated")
+                    dispatch_results["podcast"] = podcast_result.get("success", False)
+                except Exception as e:
+                    logger.bind(error=str(e)).error("podcast_generation_failed")
+                    dispatch_results["podcast"] = False
+                    await _notify_dispatch_error("Podcast", e)
+
+            # =====================================================================
             # DISPATCH: Email
             # =====================================================================
             if not skip_email:
@@ -276,30 +325,6 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                     await _notify_dispatch_error("Twitter", e)
 
             # =====================================================================
-            # DISPATCH: Video Generation (YouTube)
-            # =====================================================================
-            video_results: list = []
-            if config.video.enabled:
-                try:
-                    ranked_with_summaries = result.get("ranked_with_summaries", [])
-                    video_results = await generate_videos_for_issue(
-                        issue_date=issue_date,
-                        ranked_with_summaries=ranked_with_summaries,
-                        db=db,
-                        dry_run=False,
-                    )
-                    videos_published = sum(1 for v in video_results if v.youtube_video_id)
-                    logger.bind(
-                        videos_generated=len(video_results),
-                        videos_published=videos_published,
-                    ).info("videos_generated")
-                    dispatch_results["youtube"] = videos_published > 0
-                except Exception as e:
-                    logger.bind(error=str(e)).error("video_generation_failed")
-                    dispatch_results["youtube"] = False
-                    await _notify_dispatch_error("YouTube/Video", e)
-
-            # =====================================================================
             # DISPATCH: TikTok
             # =====================================================================
             if config.tiktok.enabled and video_results:
@@ -338,27 +363,6 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                     logger.bind(error=str(e)).error("instagram_send_failed")
                     dispatch_results["instagram"] = False
                     await _notify_dispatch_error("Instagram", e)
-
-            # =====================================================================
-            # DISPATCH: Podcast Generation
-            # =====================================================================
-            if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
-                try:
-                    podcast_result = await generate_podcast_for_issue(
-                        db=db,
-                        issue_date=issue_date,
-                        skip_video=False,
-                    )
-                    if podcast_result.get("success"):
-                        logger.bind(
-                            audio_url=podcast_result.get("audio_url"),
-                            duration=podcast_result.get("duration_seconds"),
-                        ).info("podcast_generated")
-                    dispatch_results["podcast"] = podcast_result.get("success", False)
-                except Exception as e:
-                    logger.bind(error=str(e)).error("podcast_generation_failed")
-                    dispatch_results["podcast"] = False
-                    await _notify_dispatch_error("Podcast", e)
 
             # Log dispatch summary
             successful = [k for k, v in dispatch_results.items() if v]
