@@ -89,6 +89,8 @@ The database stores all application state:
 | `cluster_summaries` | LLM-generated summaries |
 | `issues` | Daily digest metadata |
 | `events` | Analytics events |
+| `messaging_connections` | Slack/Discord connection tokens |
+| `digest_deliveries` | Per-user delivery tracking |
 
 #### Key Relationships
 
@@ -97,6 +99,8 @@ content_items 1→N metrics_snapshots
 clusters 1→N cluster_items N→1 content_items
 clusters 1→1 cluster_summaries
 users 1→N sessions
+users 1→N messaging_connections
+users 1→N digest_deliveries
 issues 1→N clusters (via issue_date)
 ```
 
@@ -221,7 +225,54 @@ GET /api/issues/2026-01-10?view=full + session cookie
 Items 1-10: Full content
 ```
 
-### 5. Infrastructure Layer
+### 5. Services Layer (`app/services/`)
+
+The services layer handles business logic for messaging, delivery, and social media:
+
+| Service | Module | Purpose |
+|---------|--------|---------|
+| Slack OAuth | `slack_service.py` | OAuth flow, token exchange, Block Kit DM sending |
+| Slack DM | `slack_dm_service.py` | Batch DM dispatch to all Slack subscribers |
+| Discord Bot | `discord_bot.py` | Slash commands for subscription management |
+| Discord DM | `discord_dm_service.py` | REST API-based DM dispatch |
+| Digest Dispatch | `digest_dispatch.py` | Timezone-aware delivery orchestration |
+| TikTok | `tiktok_service.py` | OAuth, video posting via Content Posting API |
+| Instagram | `instagram_service.py` | Reels posting via Graph API |
+
+#### Slack Integration Flow
+
+```
+User clicks "Add to Slack" → /auth/slack/connect
+  → Redirects to Slack OAuth
+  → User authorizes app in workspace
+  → /auth/slack/callback receives code
+  → Exchange code for access_token
+  → Create/update MessagingConnection
+  → Daily job sends DMs via Block Kit
+```
+
+#### Discord Integration Flow
+
+```
+User runs /subscribe in Discord server
+  → Bot validates email format
+  → Creates User if email not found
+  → Creates MessagingConnection
+  → Daily job sends DMs via REST API
+```
+
+#### Timezone-Aware Delivery
+
+```
+Scheduler runs every 15 minutes:
+  → Get users not yet delivered today
+  → For each user, check if local time is in delivery window
+  → Window = delivery_time_local ± 15 minutes
+  → If in window (or window passed), send digest
+  → Record delivery in digest_deliveries table
+```
+
+### 6. Infrastructure Layer
 
 #### Docker Compose Services
 
@@ -280,7 +331,11 @@ Items 1-10: Full content
 7. Distill each with GPT-4o-mini
 8. Store clusters + summaries in DB
 9. Write public JSON for Astro
-10. Send daily digest emails
+10. Trigger multi-channel dispatch:
+    - Email digests (timezone-aware, via Resend)
+    - Slack DMs (Block Kit, via workspace tokens)
+    - Discord DMs (REST API, via bot token)
+11. (Optional) Post video to TikTok and Instagram
 ```
 
 ### Request Flow

@@ -5,7 +5,7 @@ digest:
   max_items: 10
   send_time_default_local: "08:00"
   web_soft_gate:
-    free_items: 5
+    free_items: 10
 
 filters:
   exclude_politics: true

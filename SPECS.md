@@ -48,11 +48,12 @@ Ingest -> normalize -> metrics snapshots -> cluster -> score -> select top 10 ->
 Tables:
 
 ### users
-- id (pk)
+- id (pk, uuid)
 - email (unique)
 - timezone (default "Europe/Paris")
 - delivery_time_local (default "08:00")
 - ref_code (unique)
+- is_subscribed (bool, default true)
 - created_at
 
 ### magic_links
@@ -119,6 +120,26 @@ Tables:
 - event_name
 - ts
 - properties_json
+
+### messaging_connections
+- id (pk, uuid)
+- user_id (fk to users)
+- platform (discord|slack)
+- platform_user_id (string, indexed)
+- platform_team_id (nullable, for workspace/guild)
+- platform_team_name (nullable)
+- access_token (text, nullable - for Slack OAuth)
+- is_active (bool, default true)
+- last_sent_at (nullable datetime)
+- created_at, updated_at
+- unique constraint: (platform, platform_user_id)
+
+### digest_deliveries
+- id (pk, uuid)
+- user_id (fk to users)
+- issue_date (date, indexed)
+- delivered_at (datetime)
+- unique constraint: (user_id, issue_date)
 
 
 ---
@@ -313,8 +334,43 @@ Sharing:
 - Body:
   - Items 1–5 include bullets
   - Items 6–10 teaser only
-  - CTA: “Read full issue” -> /daily/YYYY-MM-DD
-  - CTA: “Forward to a friend”
+  - CTA: "Read full issue" -> /daily/YYYY-MM-DD
+  - CTA: "Forward to a friend"
+
+
+---
+
+## 9.1) Multi-Channel Delivery
+
+### Delivery Channels
+- **Email**: Primary channel via Resend API
+- **Slack DM**: OAuth-based, per-workspace installation, Block Kit formatting
+- **Discord DM**: Bot-based, slash commands (/subscribe, /unsubscribe, /status)
+
+### Timezone-Aware Delivery
+- Users set `timezone` (IANA format, e.g., "America/New_York") and `delivery_time_local` (HH:MM)
+- Scheduler checks users every 15 minutes
+- Delivery window: +/- 15 minutes around user's preferred time
+- Catch-up logic: if window has passed for today, send immediately
+
+### Connection Model
+- Users can have multiple messaging connections (one per platform)
+- Each connection tracks: platform, user ID, team/workspace, OAuth token (Slack only)
+- Connections can be deactivated (`is_active=false`) without deletion
+- `digest_deliveries` table prevents duplicate sends per user per issue date
+
+### Slack Integration
+- OAuth 2.0 flow: `/auth/slack/connect` → Slack authorization → `/auth/slack/callback`
+- Scopes: `chat:write`, `users:read`, `users:read.email`
+- Sends Block Kit formatted messages with topic-specific emoji
+- Stores workspace token for per-user DM delivery
+
+### Discord Integration
+- Bot with slash commands runs alongside API
+- `/subscribe <email>`: Creates user account + connection
+- `/unsubscribe`: Deactivates connection
+- `/status`: Shows subscription status and last delivery time
+- Uses REST API for DM delivery (no persistent WebSocket needed)
 
 
 ---
@@ -461,5 +517,48 @@ Scripts should run docker compose exec worker commands.
 12) Terraform Hetzner infra + cloud-init + systemd timers
 13) Observability: basic logs + error alerts (optional)
 14) Backups: nightly pg_dump
+
+---
+
+## 14) Social Media Posting
+
+### Supported Platforms
+- **TikTok**: Content Posting API, OAuth 2.0 with refresh tokens
+- **Instagram**: Graph API, Reels posting via Facebook Business account
+
+### Video Pipeline
+1. Generate video from daily issue (audio + visuals)
+2. Upload to S3/R2 with public URL
+3. Post to TikTok via pull-based upload (`PULL_FROM_URL`)
+4. Post to Instagram as Reel via container creation + publish flow
+
+### TikTok Integration
+- OAuth 2.0 flow for initial token acquisition
+- Automatic token refresh before expiry
+- Caption builder with headline, teaser, date, hashtags, CTA
+- Privacy settings: disable_duet, disable_comment, disable_stitch (configurable)
+- Configurable videos per day (`config.tiktok.videos_per_day`)
+
+### Instagram Integration
+- Requires Business/Creator Instagram account linked to Facebook Page
+- Multi-step publish: Create media container → Poll for FINISHED status → Publish
+- Polls container status every 5 seconds (max 30 attempts)
+- Caption builder with headlines, hashtags, web link CTA
+- Configurable reels per day (`config.instagram.reels_per_day`)
+
+### Configuration
+```yaml
+tiktok:
+  enabled: true
+  videos_per_day: 1
+
+instagram:
+  enabled: true
+  reels_per_day: 1
+```
+
+Required environment variables:
+- TikTok: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_ACCESS_TOKEN`, `TIKTOK_REFRESH_TOKEN`
+- Instagram: `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`
 
 END.

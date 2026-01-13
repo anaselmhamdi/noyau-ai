@@ -68,6 +68,27 @@ openssl rand -hex 32
 | `ELEVENLABS_API_KEY` | Premium TTS | [elevenlabs.io](https://elevenlabs.io) |
 | `S3_*` | Video/log storage | AWS or S3-compatible provider |
 
+### Messaging Integration Secrets
+
+| Secret | Purpose | Setup |
+|--------|---------|-------|
+| `SLACK_CLIENT_ID` | Slack OAuth Client ID | [api.slack.com/apps](https://api.slack.com/apps) |
+| `SLACK_CLIENT_SECRET` | Slack OAuth Client Secret | Slack App Settings > Basic Information |
+| `SLACK_SIGNING_SECRET` | Request signature verification | Slack App Settings > Basic Information |
+| `DISCORD_BOT_TOKEN` | Discord bot authentication | [discord.com/developers](https://discord.com/developers/applications) |
+| `DISCORD_APPLICATION_ID` | Discord application identifier | Discord Developer Portal |
+
+### Social Media Posting Secrets
+
+| Secret | Purpose | Setup |
+|--------|---------|-------|
+| `TIKTOK_CLIENT_KEY` | TikTok app client key | [developers.tiktok.com](https://developers.tiktok.com) |
+| `TIKTOK_CLIENT_SECRET` | TikTok app client secret | TikTok Developer Portal |
+| `TIKTOK_ACCESS_TOKEN` | TikTok OAuth access token | OAuth flow via `/api/auth/tiktok` |
+| `TIKTOK_REFRESH_TOKEN` | TikTok token refresh | OAuth flow via `/api/auth/tiktok` |
+| `INSTAGRAM_ACCESS_TOKEN` | Long-lived Graph API token | [developers.facebook.com](https://developers.facebook.com) |
+| `INSTAGRAM_BUSINESS_ACCOUNT_ID` | Instagram business account | Graph API Explorer |
+
 ---
 
 ## Security Hardening
@@ -256,6 +277,125 @@ docker compose logs watchtower
 ### Monitoring
 - [ ] Check Resend dashboard for bounces/complaints
 - [ ] Understand sending limits for your plan
+
+---
+
+## Slack App Setup
+
+### Create App
+- [ ] Go to [api.slack.com/apps](https://api.slack.com/apps) and click "Create New App"
+- [ ] Choose "From scratch", name it "NoyauNews"
+- [ ] Select your workspace
+
+### Configure OAuth
+- [ ] Go to OAuth & Permissions > Add Bot Token Scopes:
+  - `chat:write` - Send DMs to users
+  - `users:read` - Get user info
+  - `users:read.email` - Get user email for account linking
+- [ ] Add Redirect URL: `https://noyau.news/auth/slack/callback`
+
+### Get Credentials
+- [ ] Go to Basic Information
+- [ ] Copy Client ID to `SLACK_CLIENT_ID`
+- [ ] Copy Client Secret to `SLACK_CLIENT_SECRET`
+- [ ] Copy Signing Secret to `SLACK_SIGNING_SECRET`
+
+### Test
+- [ ] Install app to your workspace
+- [ ] Visit `https://noyau.news/auth/slack/connect`
+- [ ] Complete OAuth flow
+- [ ] Verify connection created in `messaging_connections` table
+- [ ] Check logs: `docker compose logs api | grep slack`
+
+See [docs/SLACK.md](./SLACK.md) for detailed setup guide.
+
+---
+
+## Discord Bot Setup
+
+### Create Application
+- [ ] Go to [discord.com/developers/applications](https://discord.com/developers/applications)
+- [ ] Click "New Application", name it "NoyauNews"
+- [ ] Go to Bot section, click "Add Bot"
+
+### Configure Bot
+- [ ] Copy Bot Token to `DISCORD_BOT_TOKEN`
+- [ ] Copy Application ID to `DISCORD_APPLICATION_ID`
+- [ ] Under Privileged Gateway Intents, enable "Message Content Intent" (optional)
+
+### Generate Invite URL
+- [ ] Go to OAuth2 > URL Generator
+- [ ] Select scopes: `bot`, `applications.commands`
+- [ ] Select bot permissions: `Send Messages`
+- [ ] Copy generated URL
+
+### Deploy & Test
+- [ ] Invite bot to test server using generated URL
+- [ ] Bot starts automatically with API when `DISCORD_BOT_TOKEN` is set
+- [ ] Run `/subscribe your@email.com` in Discord
+- [ ] Verify connection created in `messaging_connections` table
+- [ ] Check logs: `docker compose logs api | grep discord`
+
+See [docs/DISCORD.md](./DISCORD.md) for detailed setup guide.
+
+---
+
+## TikTok Content Posting API
+
+### Developer Account
+- [ ] Create account at [developers.tiktok.com](https://developers.tiktok.com)
+- [ ] Create a new Web app
+- [ ] Add redirect URI: `https://noyau.news/api/auth/tiktok/callback`
+
+### API Access
+- [ ] Apply for "Content Posting API" scope (`video.publish`)
+- [ ] Wait for approval (may take several days)
+- [ ] Once approved, note the Client Key and Client Secret
+
+### Get Tokens
+- [ ] Set `TIKTOK_CLIENT_KEY` and `TIKTOK_CLIENT_SECRET` in `.env`
+- [ ] Visit `/api/auth/tiktok/authorize` to start OAuth flow
+- [ ] Complete authorization on TikTok
+- [ ] Save `TIKTOK_ACCESS_TOKEN` and `TIKTOK_REFRESH_TOKEN` from response
+
+### Test
+- [ ] Ensure S3/R2 is configured for video storage
+- [ ] Run test video post in dry-run mode
+- [ ] Verify video appears on TikTok account
+
+---
+
+## Instagram Graph API
+
+### Account Setup
+- [ ] Convert Instagram account to Business or Creator account
+- [ ] Create a Facebook Page if you don't have one
+- [ ] Link Facebook Page to Instagram account (Page Settings > Instagram)
+
+### Facebook App
+- [ ] Create Business app at [developers.facebook.com](https://developers.facebook.com)
+- [ ] Add "Instagram Graph API" product
+- [ ] Configure OAuth redirect URI: `https://noyau.news/api/auth/instagram/callback`
+
+### Request Permissions
+- [ ] Submit for App Review requesting:
+  - `instagram_content_publish` - Post Reels
+  - `instagram_basic` - Read account info
+- [ ] Wait for approval
+
+### Get Credentials
+- [ ] Get Instagram Business Account ID via Graph API Explorer:
+  ```
+  GET /me/accounts → GET /{page_id}?fields=instagram_business_account
+  ```
+- [ ] Generate long-lived access token (60 days)
+- [ ] Set `INSTAGRAM_ACCESS_TOKEN` and `INSTAGRAM_BUSINESS_ACCOUNT_ID` in `.env`
+
+### Test
+- [ ] Upload test video to S3/R2
+- [ ] Verify video URL is publicly accessible
+- [ ] Run test Reel post
+- [ ] Verify Reel appears on Instagram account
 
 ---
 

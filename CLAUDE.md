@@ -54,6 +54,17 @@ python -m app.jobs.daily
 python -m app.jobs.daily --dry-run
 ```
 
+### Discord Bot
+```bash
+# Start Discord bot (runs alongside API when DISCORD_BOT_TOKEN is set)
+python -m app.jobs.discord_bot
+
+# Bot provides these slash commands in Discord servers:
+# /subscribe <email> - Subscribe to daily digest DMs
+# /unsubscribe       - Stop receiving daily digest DMs
+# /status            - Check subscription status
+```
+
 ### Docker
 ```bash
 # Full stack (development)
@@ -90,6 +101,8 @@ tail -f /opt/noyau/logs/app.log
 - **CI/CD**: GitHub Actions → GHCR → Watchtower (auto-pull)
 - **LLM**: OpenAI API
 - **Email**: Resend API
+- **Messaging**: Slack App (OAuth), Discord Bot (discord.py)
+- **Social**: TikTok Content Posting API, Instagram Graph API
 
 ### Key Directories
 ```
@@ -128,6 +141,10 @@ Magic link (passwordless) via email. Session stored in cookie. Soft gate: items 
 - **Environment**: `.env` file (see `.env.example`)
 - **Seeds & Ranking**: `config.yml` (RSS feeds, X accounts, Reddit subs, ranking weights)
 - **Required env vars**: `DATABASE_URL`, `OPENAI_API_KEY`, `RESEND_API_KEY`, `SECRET_KEY`
+- **Slack integration**: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
+- **Discord bot**: `DISCORD_BOT_TOKEN`, `DISCORD_APPLICATION_ID`
+- **TikTok posting**: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_ACCESS_TOKEN`, `TIKTOK_REFRESH_TOKEN`
+- **Instagram posting**: `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`
 
 ## Testing
 
@@ -144,6 +161,13 @@ Tests use SQLite in-memory (aiosqlite) for speed. Key fixtures in `tests/conftes
 | `app/pipeline/scoring.py` | Cluster ranking algorithm |
 | `app/ingest/orchestrator.py` | Fetcher orchestration and metric capture |
 | `app/core/database.py` | SQLAlchemy async engine + session |
+| `app/core/datetime_utils.py` | Timezone utilities, delivery window logic |
+| `app/services/slack_service.py` | Slack OAuth and Block Kit DM sending |
+| `app/services/discord_bot.py` | Discord bot with slash commands |
+| `app/services/digest_dispatch.py` | Timezone-aware delivery orchestration |
+| `app/services/tiktok_service.py` | TikTok video posting |
+| `app/services/instagram_service.py` | Instagram Reels posting |
+| `app/models/messaging.py` | MessagingConnection model |
 | `config.yml` | Seeds and ranking configuration |
 
 ## Social Links

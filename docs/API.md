@@ -89,6 +89,140 @@ Cookie: session_id={session_id}
 
 ---
 
+### User Preferences
+
+#### Get Available Timezones
+
+```http
+GET /api/users/timezones
+```
+
+**Response (200 OK):**
+```json
+{
+  "timezones": [
+    "UTC",
+    "America/New_York",
+    "America/Los_Angeles",
+    "Europe/London",
+    "Europe/Paris",
+    "Asia/Tokyo"
+  ]
+}
+```
+
+---
+
+#### Update User Preferences
+
+```http
+PATCH /api/users/me/preferences
+Cookie: session_id={session_id}
+Content-Type: application/json
+
+{
+  "timezone": "America/New_York",
+  "delivery_time_local": "09:00"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "authed": true,
+  "email": "user@example.com",
+  "timezone": "America/New_York",
+  "delivery_time_local": "09:00",
+  "ref_code": "abc123xy",
+  "is_subscribed": true
+}
+```
+
+**Errors:**
+- `401`: Unauthorized (session required)
+- `422`: Invalid timezone or time format (HH:MM required)
+
+---
+
+#### Unsubscribe from Email Digests
+
+```http
+POST /api/users/me/unsubscribe
+Cookie: session_id={session_id}
+```
+
+**Response (200 OK):**
+```json
+{
+  "ok": true,
+  "message": "You have been unsubscribed from email digests."
+}
+```
+
+---
+
+#### Resubscribe to Email Digests
+
+```http
+POST /api/users/me/resubscribe
+Cookie: session_id={session_id}
+```
+
+**Response (200 OK):**
+```json
+{
+  "ok": true,
+  "message": "You have been resubscribed to email digests."
+}
+```
+
+---
+
+### Slack OAuth
+
+#### Initiate Slack Connection
+
+```http
+GET /auth/slack/connect
+```
+
+Initiates OAuth flow to connect user's Slack workspace.
+
+**Response:** Redirects to Slack OAuth authorization page
+
+**Errors:**
+- `400`: Slack integration not enabled
+- `500`: Slack client ID not configured
+
+---
+
+#### Slack OAuth Callback
+
+```http
+GET /auth/slack/callback?code={code}&state={state}
+```
+
+Handles OAuth callback from Slack after user authorization.
+
+**Success:** Redirects to `https://noyau.news/?slack=success`
+
+**Errors:**
+- Redirects to `/?slack=error&message={error}` on failure
+
+---
+
+#### Unsubscribe from Slack DMs
+
+```http
+GET /auth/slack/unsubscribe?user_id={slack_user_id}
+```
+
+Deactivates Slack DM subscription.
+
+**Success:** Redirects to `/?slack=unsubscribed`
+
+---
+
 ### Issues
 
 #### Get Daily Issue
@@ -203,6 +337,21 @@ GET /health
 ---
 
 ## Response Schemas
+
+### MeResponse
+
+User status and preferences:
+
+```typescript
+interface MeResponse {
+  authed: boolean;
+  email: string | null;
+  timezone: string | null;
+  delivery_time_local: string | null;  // HH:MM format
+  ref_code: string | null;
+  is_subscribed: boolean | null;
+}
+```
 
 ### IssueItemFull
 

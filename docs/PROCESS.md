@@ -37,10 +37,18 @@ This document explains how content flows through NoyauAI from ingestion to deliv
 │       │                             │               │                    │
 │       │              ┌──────────────┴───────────────┘                    │
 │       │              │                                                   │
-│       │         ┌────▼─────┐   ┌──────────┐                             │
-│       └────────→│  Write   │ → │  Send    │                             │
-│                 │  JSON    │   │  Emails  │                             │
-│                 └──────────┘   └──────────┘                             │
+│       │         ┌────▼─────┐   ┌──────────┐   ┌──────────┐             │
+│       └────────→│  Write   │ → │ Multi-   │ → │  Social  │             │
+│                 │  JSON    │   │ Channel  │   │  Posts   │             │
+│                 └──────────┘   │ Dispatch │   │ (opt.)   │             │
+│                                └──────────┘   └──────────┘             │
+│                                     │                                   │
+│                      ┌──────────────┼──────────────┐                    │
+│                      ▼              ▼              ▼                    │
+│                 ┌─────────┐   ┌─────────┐   ┌─────────┐                │
+│                 │  Email  │   │  Slack  │   │ Discord │                │
+│                 │  (TZ)   │   │   DMs   │   │   DMs   │                │
+│                 └─────────┘   └─────────┘   └─────────┘                │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -384,15 +392,17 @@ for rank, (identity, items, score, summary) in enumerate(top_10):
 }
 ```
 
-#### Step 2.9: Send Emails
+#### Step 2.9: Trigger Multi-Channel Dispatch
+
+The daily job triggers dispatch to all channels. Actual delivery is handled by Phase 3 (timezone-aware scheduler).
 
 ```python
-for user in all_subscribers:
-    await send_daily_digest(
-        email=user.email,
-        issue_date=today,
-        items=formatted_items
-    )
+# Mark issue as ready for dispatch
+update_issue_status(issue_date, "ready_for_dispatch")
+
+# Optionally trigger immediate dispatch for testing
+if not dry_run:
+    await dispatch_to_all_channels(issue_date, formatted_items)
 ```
 
 ### Output
@@ -401,7 +411,199 @@ After daily job:
 - `issues` table updated with new issue
 - `clusters` and `cluster_summaries` populated
 - `public/issues/{date}.json` written
-- Emails sent to all subscribers
+- Issue marked ready for multi-channel dispatch
+
+---
+
+## Phase 3: Timezone-Aware Delivery
+
+### Purpose
+Deliver digests to each user at their preferred local time.
+
+### Trigger
+- Scheduler runs every 15 minutes
+- Checks users whose delivery window is active
+
+### Process
+
+#### Step 3.1: Identify Users Ready for Delivery
+
+```python
+def get_users_ready_for_delivery(issue_date):
+    # Get subscribed users who haven't received this issue
+    users = SELECT * FROM users
+            WHERE is_subscribed = true
+            AND id NOT IN (
+                SELECT user_id FROM digest_deliveries
+                WHERE issue_date = ?
+            )
+
+    ready = []
+    for user in users:
+        # Check if user's local time is in delivery window
+        user_local_now = datetime.now(ZoneInfo(user.timezone))
+        target_time = parse_time(user.delivery_time_local)  # e.g., "08:00"
+
+        # Create target datetime for today
+        target_dt = user_local_now.replace(
+            hour=target_time.hour,
+            minute=target_time.minute
+        )
+
+        # Check if within ±15 minute window
+        diff = abs((user_local_now - target_dt).total_seconds())
+        in_window = diff <= 15 * 60
+
+        # Or window has passed (catch-up for new subscribers)
+        window_passed = user_local_now > target_dt + timedelta(minutes=15)
+
+        if in_window or window_passed:
+            ready.append(user)
+
+    return ready
+```
+
+#### Step 3.2: Send Email and Record Delivery
+
+```python
+for user in ready_users:
+    # Send via Resend API
+    await send_daily_digest(user.email, issue_date, items)
+
+    # Record delivery to prevent duplicates
+    INSERT INTO digest_deliveries (user_id, issue_date, delivered_at)
+    VALUES (user.id, issue_date, now())
+```
+
+### Delivery Window Example
+
+```
+User settings:
+  timezone: America/New_York
+  delivery_time_local: 08:00
+
+Scheduler runs at 12:45 UTC:
+  → User's local time: 07:45 EST
+  → Target: 08:00 EST
+  → Diff: 15 minutes
+  → IN WINDOW → Send digest
+
+Scheduler runs at 13:15 UTC:
+  → User's local time: 08:15 EST
+  → Target: 08:00 EST
+  → WINDOW PASSED → Would send if not already sent
+```
+
+---
+
+## Phase 4: Multi-Channel Dispatch
+
+### Purpose
+Send digest via Slack DM and Discord DM to users who have connected these platforms.
+
+### Slack DM Dispatch
+
+```python
+async def send_slack_digests(issue_date, items):
+    # Build Block Kit message
+    blocks = build_digest_blocks(issue_date, items)
+
+    # Get all active Slack connections
+    connections = SELECT * FROM messaging_connections
+                  WHERE platform = 'slack' AND is_active = true
+
+    for connection in connections:
+        try:
+            # Open DM channel with user
+            dm_channel = await slack_client.conversations_open(
+                token=connection.access_token,
+                users=connection.platform_user_id
+            )
+
+            # Send Block Kit message
+            await slack_client.chat_postMessage(
+                token=connection.access_token,
+                channel=dm_channel["channel"]["id"],
+                blocks=blocks,
+                text=f"Noyau Daily Digest - {issue_date}"  # Fallback
+            )
+
+            connection.last_sent_at = now()
+
+        except SlackApiError as e:
+            if e.response["error"] in ["token_revoked", "invalid_auth"]:
+                connection.is_active = False  # Deactivate connection
+            log.error("slack_dm_failed", error=e)
+```
+
+### Discord DM Dispatch
+
+```python
+async def send_discord_digests(issue_date, items):
+    # Build Discord embeds
+    embeds = build_dm_embeds(issue_date, items)
+
+    # Get all active Discord connections
+    connections = SELECT * FROM messaging_connections
+                  WHERE platform = 'discord' AND is_active = true
+
+    for connection in connections:
+        try:
+            # Create DM channel via REST API
+            dm_channel = await discord_http.create_dm(
+                recipient_id=connection.platform_user_id
+            )
+
+            # Send embeds
+            await discord_http.send_message(
+                channel_id=dm_channel["id"],
+                embeds=embeds
+            )
+
+            connection.last_sent_at = now()
+
+        except DiscordHTTPException as e:
+            if e.code == 50007:  # Cannot send to user
+                connection.is_active = False
+            log.error("discord_dm_failed", error=e)
+```
+
+### Block Kit Message Format (Slack)
+
+```python
+def build_digest_blocks(issue_date, items):
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"🗞️ Noyau Daily - {issue_date}"}
+        },
+        {"type": "divider"}
+    ]
+
+    for i, item in enumerate(items[:10], 1):
+        # Topic emoji based on content
+        emoji = get_topic_emoji(item)  # 🚀, ⚠️, 📊, etc.
+
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{emoji} *{i}. {item['headline']}*\n{item['teaser']}"
+            }
+        })
+
+    # CTA button
+    blocks.append({
+        "type": "actions",
+        "elements": [{
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Read on Web"},
+            "url": f"https://noyau.news/daily/{issue_date}"
+        }]
+    })
+
+    return blocks
+```
 
 ---
 
