@@ -365,7 +365,7 @@ video:
 
   # Visual style
   style:
-    font: "Inter"
+    font: "DejaVu-Sans"
     font_size: 48
     font_color: "#FFFFFF"
     background_color: "#0A0A0A"
