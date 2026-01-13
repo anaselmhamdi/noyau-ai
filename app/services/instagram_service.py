@@ -30,6 +30,7 @@ class InstagramPostResult:
     media_id: str | None
     success: bool
     error: str | None = None
+    permalink: str | None = None
 
 
 @dataclass
@@ -201,6 +202,42 @@ async def _publish_media(
         return None, str(e)
 
 
+async def _get_media_permalink(
+    client: httpx.AsyncClient,
+    media_id: str,
+    access_token: str,
+) -> str | None:
+    """
+    Get the permalink for a published media.
+
+    Args:
+        client: Async HTTP client
+        media_id: Published media ID
+        access_token: Valid access token
+
+    Returns:
+        Permalink URL or None if not found
+    """
+    url = f"{GRAPH_API_BASE}/{media_id}"
+
+    params = {
+        "fields": "permalink",
+        "access_token": access_token,
+    }
+
+    try:
+        resp = await client.get(url, params=params)
+        data = resp.json()
+
+        if resp.status_code == 200:
+            permalink = data.get("permalink")
+            return str(permalink) if permalink else None
+        return None
+
+    except Exception:
+        return None
+
+
 def build_reel_caption(item: dict[str, Any], rank: int) -> str:
     """
     Build an Instagram Reel caption from an issue item.
@@ -306,9 +343,16 @@ async def post_instagram_reel(
         )
 
         if media_id:
+            # Step 4: Get permalink
+            permalink = await _get_media_permalink(
+                client=client,
+                media_id=media_id,
+                access_token=config.instagram.access_token,
+            )
             return InstagramPostResult(
                 media_id=media_id,
                 success=True,
+                permalink=permalink,
             )
         else:
             return InstagramPostResult(
@@ -383,6 +427,7 @@ async def send_instagram_reels(
             logger.bind(
                 rank=i + 1,
                 media_id=result.media_id,
+                permalink=result.permalink,
             ).info("instagram_reel_posted")
         else:
             logger.bind(

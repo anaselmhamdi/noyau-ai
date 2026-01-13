@@ -229,6 +229,7 @@ async def main(
                     results["tiktok"] = (False, f"Error: {str(e)}")
 
         # Dispatch to Instagram
+        instagram_permalinks: list[str] = []
         if "instagram" in destinations:
             if not config.instagram.enabled:
                 results["instagram"] = (False, "Instagram is disabled in config")
@@ -240,6 +241,10 @@ async def main(
                         issue_date, videos_for_social, items
                     )
                     results["instagram"] = (instagram_result.success, instagram_result.message)
+                    # Collect permalinks from successful posts
+                    for r in instagram_result.results:
+                        if r.success and r.permalink:
+                            instagram_permalinks.append(r.permalink)
                 except Exception as e:
                     logger.bind(error=str(e)).error("instagram_dispatch_error")
                     results["instagram"] = (False, f"Error: {str(e)}")
@@ -250,6 +255,12 @@ async def main(
         for dest, (success, message) in results.items():
             status = "OK" if success else "FAILED"
             print(f"  [{status}] {dest}: {message}")
+
+        # Print Instagram URLs
+        if instagram_permalinks:
+            print("\nInstagram URLs:")
+            for url in instagram_permalinks:
+                print(f"  {url}")
 
         success_count = sum(1 for s, _ in results.values() if s)
         print(f"\n{success_count}/{len(results)} destinations succeeded")
