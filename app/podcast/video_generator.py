@@ -33,7 +33,8 @@ WAVEFORM_ATTACK = 0.7  # How quickly bars rise (0-1, higher = faster attack)
 # Text overlay settings
 TITLE_Y = 320  # "NOYAU DAILY" above waveform
 EPISODE_Y = 720  # Episode info below waveform
-FONT_COLOR = (80, 80, 80)  # Dark gray for light backgrounds
+TITLE_COLOR = (0, 207, 207)  # Cyan to match "News" in logo
+EPISODE_COLOR = (156, 163, 175)  # Gray to match "Noyau" in logo
 FONT_SIZE_TITLE = 64
 FONT_SIZE_EPISODE = 42
 
@@ -206,19 +207,19 @@ def create_waveform_frame(
             fill=WAVEFORM_COLOR,
         )
 
-    # Draw title text (centered)
+    # Draw title text (centered) in cyan
     title_font = font.font_variant(size=FONT_SIZE_TITLE)
     title_bbox = draw.textbbox((0, 0), title, font=title_font)
     title_width = title_bbox[2] - title_bbox[0]
     title_x = (VIDEO_WIDTH - title_width) // 2
-    draw.text((title_x, TITLE_Y), title, font=title_font, fill=FONT_COLOR)
+    draw.text((title_x, TITLE_Y), title, font=title_font, fill=TITLE_COLOR)
 
-    # Draw episode text (centered)
+    # Draw episode text (centered) in gray
     episode_font = font.font_variant(size=FONT_SIZE_EPISODE)
     episode_bbox = draw.textbbox((0, 0), episode_text, font=episode_font)
     episode_width = episode_bbox[2] - episode_bbox[0]
     episode_x = (VIDEO_WIDTH - episode_width) // 2
-    draw.text((episode_x, EPISODE_Y), episode_text, font=episode_font, fill=FONT_COLOR)
+    draw.text((episode_x, EPISODE_Y), episode_text, font=episode_font, fill=EPISODE_COLOR)
 
     return frame
 
