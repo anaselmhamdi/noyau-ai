@@ -191,6 +191,64 @@ async def send_discord_digest(issue_date: date, items: list[dict]) -> bool:
             return False
 
 
+async def send_discord_subscription_notification(
+    email: str,
+    timezone: str | None = None,
+    delivery_time: str | None = None,
+) -> bool:
+    """
+    Send notification to Discord when a new user subscribes via email.
+
+    Args:
+        email: New subscriber's email
+        timezone: User's timezone preference
+        delivery_time: User's preferred delivery time
+
+    Returns:
+        True if successful, False otherwise
+    """
+    config = get_config()
+
+    webhook_url = config.discord.webhook_url
+    if not webhook_url:
+        logger.debug("discord_webhook_url_not_set")
+        return False
+
+    # Build fields
+    fields: list[dict[str, str | bool]] = [
+        {"name": "Email", "value": email, "inline": True},
+    ]
+    if timezone:
+        fields.append({"name": "Timezone", "value": timezone, "inline": True})
+    if delivery_time:
+        fields.append({"name": "Delivery Time", "value": delivery_time, "inline": True})
+
+    embed = {
+        "title": "New Email Subscriber",
+        "description": "A new user just subscribed to the daily digest!",
+        "color": 0x2ECC71,  # Green
+        "fields": fields,
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.post(webhook_url, json={"embeds": [embed]})
+
+            if resp.status_code not in (200, 204):
+                logger.bind(status=resp.status_code).error("discord_subscription_webhook_failed")
+                return False
+
+            logger.bind(email=email).debug("discord_subscription_notification_sent")
+            return True
+
+        except httpx.TimeoutException:
+            logger.error("discord_subscription_webhook_timeout")
+            return False
+        except Exception as e:
+            logger.bind(error=str(e)).error("discord_subscription_notification_failed")
+            return False
+
+
 async def send_discord_error(
     title: str,
     error: str,

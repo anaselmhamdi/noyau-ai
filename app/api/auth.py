@@ -19,7 +19,10 @@ from app.core.security import (
 from app.dependencies import DBSession
 from app.models.user import MagicLink, Session, User
 from app.schemas.auth import MagicLinkRequest, MagicLinkResponse
-from app.services.discord_service import send_discord_error
+from app.services.discord_service import (
+    send_discord_error,
+    send_discord_subscription_notification,
+)
 from app.services.email_service import send_magic_link_email
 from app.services.email_validation import ValidationStatus, get_email_validator
 from app.services.posthog_client import track_session_started, track_signup_completed
@@ -185,6 +188,13 @@ async def verify_magic_link(
         user = User(**user_kwargs)
         db.add(user)
         await db.flush()
+
+        # Notify Discord of new subscriber
+        await send_discord_subscription_notification(
+            email=user.email,
+            timezone=user_kwargs.get("timezone"),
+            delivery_time=user_kwargs.get("delivery_time_local"),
+        )
 
     # Create session
     session = Session(
