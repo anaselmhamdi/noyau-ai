@@ -53,8 +53,8 @@ const canonicalUrl = `https://noyau.news/daily/${date}`;
 const publishedTime = `${date}T08:00:00Z`;
 const pageTitle = `Daily Digest - ${shortDate}`;
 
-// JSON-LD schemas
-const articleSchema = generateNewsArticleSchema(date!, pageTitle, pageDescription);
+// JSON-LD schemas - pass items for articleBody generation (LLM discoverability)
+const articleSchema = generateNewsArticleSchema(date!, pageTitle, pageDescription, issue.items || []);
 const itemListSchema = generateItemListSchema(date!, issue.items || []);
 const breadcrumbSchema = generateBreadcrumbSchema([
   { name: 'Home', url: 'https://noyau.news' },

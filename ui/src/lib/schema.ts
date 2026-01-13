@@ -49,9 +49,16 @@ export function generateWebSiteSchema() {
 export function generateNewsArticleSchema(
   date: string,
   headline: string,
-  description: string
+  description: string,
+  items?: IssueItem[]
 ) {
   const publishedTime = `${date}T08:00:00Z`;
+
+  // Generate articleBody from takeaways for LLM discoverability
+  const articleBody = items
+    ?.filter((item) => item.takeaway)
+    .map((item) => `${item.rank}. ${item.headline}: ${item.takeaway}`)
+    .join('\n\n');
 
   return {
     '@context': 'https://schema.org',
@@ -60,6 +67,19 @@ export function generateNewsArticleSchema(
     description: description,
     datePublished: publishedTime,
     dateModified: publishedTime,
+    inLanguage: 'en-US',
+    keywords: [
+      'software engineering',
+      'cloud computing',
+      'open source',
+      'security',
+      'DevOps',
+      'machine learning',
+      'AI',
+      'developer tools',
+    ],
+    isAccessibleForFree: true,
+    ...(articleBody && { articleBody }),
     author: {
       '@type': 'Organization',
       name: 'noyau',
@@ -86,15 +106,20 @@ export function generateItemListSchema(date: string, items: IssueItem[]) {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: `Daily Tech Digest - ${date}`,
+    description: `Curated engineering news for ${date}. ${items.length} stories ranked by signal.`,
     numberOfItems: items.length,
+    inLanguage: 'en-US',
     itemListElement: items.map((item) => ({
       '@type': 'ListItem',
       position: item.rank,
       item: {
         '@type': 'TechArticle',
         headline: item.headline,
-        description: item.teaser,
+        description: item.takeaway
+          ? `${item.teaser} ${item.takeaway}`
+          : item.teaser,
         url: `${SITE_URL}/daily/${date}#story-${item.rank}`,
+        inLanguage: 'en-US',
       },
     })),
   };

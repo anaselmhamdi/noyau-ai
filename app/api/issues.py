@@ -144,17 +144,22 @@ async def get_issue(
     show_full = is_authenticated and view == "full"
 
     items: list[IssueItemPublic | IssueItemFull] = []
-    for rank, cluster in enumerate(clusters, start=1):
+    display_rank = 0
+    for cluster in clusters:
         summary: ClusterSummary | None = cluster.summary
 
         if not summary:
             continue
 
-        if show_full or rank <= config.digest.free_items:
+        display_rank += 1
+        if display_rank > config.digest.max_items:
+            break
+
+        if show_full or display_rank <= config.digest.free_items:
             # Return full item
             items.append(
                 IssueItemFull(
-                    rank=rank,
+                    rank=display_rank,
                     headline=summary.headline,
                     teaser=summary.teaser,
                     takeaway=summary.takeaway,
@@ -169,7 +174,7 @@ async def get_issue(
             # Return locked item (headline + teaser only)
             items.append(
                 IssueItemPublic(
-                    rank=rank,
+                    rank=display_rank,
                     headline=summary.headline,
                     teaser=summary.teaser,
                     locked=True,

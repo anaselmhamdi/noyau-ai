@@ -42,6 +42,7 @@ const primaryDomain = primaryCitation?.url ? new URL(primaryCitation.url).hostna
 ---
 
 <article
+  id={`story-${rank}`}
   class={`group relative ${isTopThree ? 'card-featured' : 'card-interactive'}`}
   data-rank={rank}
 >

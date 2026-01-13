@@ -8,7 +8,7 @@ interface Props {
 const { rank, headline, teaser } = Astro.props;
 ---
 
-<article class="group relative p-5 sm:p-6 bg-slate/50 border border-border/50 rounded-card overflow-hidden" data-rank={rank}>
+<article id={`story-${rank}`} class="group relative p-5 sm:p-6 bg-slate/50 border border-border/50 rounded-card overflow-hidden" data-rank={rank}>
   {/* Blur overlay */}
   <div class="absolute inset-0 backdrop-blur-[2px] bg-gradient-to-b from-transparent via-slate/30 to-slate/60 pointer-events-none z-10"></div>
 

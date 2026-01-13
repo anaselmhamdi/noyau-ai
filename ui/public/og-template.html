@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans:wght@500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 1200px;
+      height: 630px;
+      background: #0B0F14;
+      font-family: 'IBM Plex Sans', system-ui, sans-serif;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Grid pattern */
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* Glow effect */
+    .glow {
+      position: absolute;
+      top: -100px;
+      left: -100px;
+      width: 600px;
+      height: 500px;
+      background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.12) 0%, transparent 70%);
+    }
+
+    /* Left accent bar */
+    .accent-bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: #22D3EE;
+    }
+
+    /* Content */
+    .content {
+      position: relative;
+      z-index: 1;
+      padding: 100px 80px;
+    }
+
+    .signal {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #94A3B8;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+
+    .signal-dot {
+      width: 12px;
+      height: 12px;
+      background: #22D3EE;
+      border-radius: 50%;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+    }
+
+    .title {
+      font-size: 80px;
+      font-weight: 700;
+      color: #E5E7EB;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+
+    .tagline {
+      font-size: 32px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-bottom: 40px;
+    }
+
+    .divider {
+      width: 200px;
+      height: 2px;
+      background: linear-gradient(90deg, #22D3EE, transparent);
+      margin-bottom: 32px;
+    }
+
+    .slogan {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 28px;
+      font-weight: 600;
+      background: linear-gradient(90deg, #22D3EE, rgba(34, 211, 238, 0.6));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Large decorative number */
+    .big-number {
+      position: absolute;
+      right: 40px;
+      top: 140px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 280px;
+      font-weight: 700;
+      color: #22D3EE;
+      opacity: 0.06;
+      line-height: 1;
+    }
+
+    /* Footer */
+    .footer {
+      position: absolute;
+      bottom: 40px;
+      left: 80px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 16px;
+      font-weight: 500;
+      color: #94A3B8;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="accent-bar"></div>
+
+  <div class="content">
+    <div class="signal">
+      <span>[</span>
+      <div class="signal-dot"></div>
+      <span>]</span>
+    </div>
+    <h1 class="title">NoyauNews</h1>
+    <p class="tagline">Daily Engineering Digest</p>
+    <div class="divider"></div>
+    <p class="slogan">10 things worth knowing</p>
+  </div>
+
+  <div class="big-number">10</div>
+  <div class="footer">noyau.news</div>
+</body>
+</html>

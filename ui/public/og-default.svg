@@ -1,0 +1,67 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0B0F14"/>
+
+  <!-- Grid pattern -->
+  <defs>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="rgba(34, 211, 238, 0.04)" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="glowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="rgba(34, 211, 238, 0.6)"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Glow effect top-left -->
+  <ellipse cx="200" cy="150" rx="400" ry="300" fill="url(#glowGradient)"/>
+
+  <!-- Content container -->
+  <g transform="translate(80, 180)">
+    <!-- Signal indicator -->
+    <g>
+      <text fill="#94A3B8" font-family="monospace" font-size="18" font-weight="500">[</text>
+      <circle cx="18" cy="-5" r="6" fill="#22D3EE"/>
+      <text x="30" fill="#94A3B8" font-family="monospace" font-size="18" font-weight="500">]</text>
+    </g>
+
+    <!-- Main title -->
+    <text y="70" fill="#E5E7EB" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="72" font-weight="700" letter-spacing="-0.02em">
+      NoyauNews
+    </text>
+
+    <!-- Tagline -->
+    <text y="130" fill="#94A3B8" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="32" font-weight="500">
+      Daily Engineering Digest
+    </text>
+
+    <!-- Divider line -->
+    <rect y="170" width="200" height="2" fill="#22D3EE" opacity="0.5"/>
+
+    <!-- 10 things -->
+    <text y="230" fill="url(#textGradient)" font-family="IBM Plex Mono, monospace" font-size="28" font-weight="600">
+      10 things worth knowing
+    </text>
+  </g>
+
+  <!-- Bottom decorative elements -->
+  <g transform="translate(80, 530)">
+    <text fill="#94A3B8" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="500" opacity="0.6">
+      noyau.news
+    </text>
+  </g>
+
+  <!-- Right side decorative numbers -->
+  <g transform="translate(900, 200)" opacity="0.08">
+    <text fill="#22D3EE" font-family="IBM Plex Mono, monospace" font-size="240" font-weight="700">10</text>
+  </g>
+
+  <!-- Border accent -->
+  <rect x="0" y="0" width="4" height="630" fill="#22D3EE"/>
+</svg>
