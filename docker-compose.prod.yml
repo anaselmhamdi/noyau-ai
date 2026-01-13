@@ -10,6 +10,14 @@ services:
       - ./output/videos:/app/output/videos
     ports:
       - "8000:8000"
+    # Limit resources to prevent video encoding from starving the system
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
