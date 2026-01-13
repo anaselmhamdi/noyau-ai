@@ -163,12 +163,14 @@ async def _post_tweet(
         if resp.status_code == 201:
             data = resp.json()
             tweet_id = data.get("data", {}).get("id")
+            logger.bind(tweet_id=tweet_id).debug("tweet_posted")
             return TweetResult(
                 tweet_id=tweet_id,
                 text=text,
                 success=True,
             )
         elif resp.status_code == 429:
+            logger.warning("twitter_rate_limit_exceeded")
             return TweetResult(
                 tweet_id=None,
                 text=text,
@@ -176,6 +178,7 @@ async def _post_tweet(
                 error="Rate limit exceeded",
             )
         elif resp.status_code == 401:
+            logger.bind(response=resp.text[:500] if resp.text else "").error("twitter_auth_failed")
             return TweetResult(
                 tweet_id=None,
                 text=text,
@@ -183,7 +186,11 @@ async def _post_tweet(
                 error="Authentication failed - check API credentials",
             )
         else:
-            error_detail = resp.text[:200] if resp.text else "Unknown error"
+            error_detail = resp.text[:500] if resp.text else "Unknown error"
+            logger.bind(
+                status_code=resp.status_code,
+                response=error_detail,
+            ).error("twitter_api_error")
             return TweetResult(
                 tweet_id=None,
                 text=text,
@@ -457,7 +464,14 @@ async def send_twitter_digest(issue_date: date, items: list[dict[str, Any]]) -> 
             ).info("twitter_thread_posted")
             return True
         else:
-            logger.bind(message=result.message).warning("twitter_thread_failed")
+            # Log detailed failure info including individual tweet errors
+            failed_tweets = [t for t in result.tweet_results if not t.success]
+            errors = [t.error for t in failed_tweets if t.error]
+            logger.bind(
+                message=result.message,
+                failed_count=len(failed_tweets),
+                errors=errors[:5],  # First 5 errors
+            ).warning("twitter_thread_failed")
             return False
 
     except Exception as e:
