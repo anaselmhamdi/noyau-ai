@@ -28,6 +28,15 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
+class HealthCheckFilter(logging.Filter):
+    """Filter out health check requests from uvicorn access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        # Filter out GET /health requests (uvicorn format: "GET /health HTTP/1.1")
+        return "/health" not in message
+
+
 def _health_log_filter(record: dict[str, Any]) -> bool:
     """Filter health check logs - only show at DEBUG level."""
     message = record.get("message", "")
@@ -98,6 +107,9 @@ def setup_logging() -> None:
         "aiohttp",
     ]:
         logging.getLogger(name).handlers = [InterceptHandler()]
+
+    # Filter health check requests from uvicorn access logs
+    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
 def get_logger(name: str) -> Any:
