@@ -6,6 +6,7 @@ Runs hourly ingest and daily digest jobs in-process with PostgreSQL persistence.
 Jobs:
 - Hourly ingest: Fetches content from all sources (top of every hour)
 - Daily build: Builds the issue at 05:00 UTC (before any user's delivery window)
+- Podcast generate: Generates daily podcast at 05:30 UTC (after daily build)
 - Delivery window: Sends digests to users every 15 min based on their timezone
 """
 
@@ -90,6 +91,31 @@ async def delivery_window_job() -> None:
             raise
 
 
+async def podcast_generate_job() -> None:
+    """Generate daily podcast from top 5 stories.
+
+    Runs at 05:30 UTC, 30 minutes after the daily build to ensure
+    the issue and cluster summaries are ready.
+    """
+    from app.config import get_config
+    from app.jobs.podcast_generate import main as run_podcast_job
+
+    # Check if podcast is enabled
+    config = get_config()
+    if hasattr(config, "podcast") and config.podcast:
+        if not config.podcast.enabled:
+            logger.debug("podcast_generation_disabled")
+            return
+
+    logger.info("scheduled_podcast_generate_started")
+    try:
+        await run_podcast_job(dry_run=False)
+        logger.info("scheduled_podcast_generate_completed")
+    except Exception as e:
+        logger.bind(error=str(e)).error("scheduled_podcast_generate_failed")
+        raise
+
+
 # Backwards compatibility alias
 async def daily_job() -> None:
     """Daily digest job - builds issue and sends emails.
@@ -168,6 +194,15 @@ async def start_scheduler() -> AsyncScheduler | None:
         conflict_policy=ConflictPolicy.replace,
     )
 
+    # Podcast generate job: 05:30 UTC (after daily build)
+    # Generates daily podcast from top 5 stories
+    await scheduler.add_schedule(
+        podcast_generate_job,
+        CronTrigger(hour=5, minute=30),
+        id="podcast_generate",
+        conflict_policy=ConflictPolicy.replace,
+    )
+
     # Delivery window job: every 15 minutes
     # Sends digest emails to users based on their timezone preferences
     await scheduler.add_schedule(
@@ -182,7 +217,7 @@ async def start_scheduler() -> AsyncScheduler | None:
 
     logger.info(
         "scheduler_started",
-        jobs=["hourly_ingest", "daily_build", "delivery_window"],
+        jobs=["hourly_ingest", "daily_build", "podcast_generate", "delivery_window"],
     )
 
     return scheduler

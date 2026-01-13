@@ -39,6 +39,7 @@ dependencies = [
     "apscheduler>=4.0.0a5",
     # Discord bot
     "discord.py>=2.3",
+    "scipy>=1.17.0",
 ]
 
 [project.scripts]

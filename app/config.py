@@ -360,6 +360,64 @@ class VideoConfig:
         )
 
 
+class PodcastTTSConfig:
+    """Podcast TTS configuration."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.provider: str = data.get("provider", "openai")
+        self.voice: str = data.get("voice", "nova")
+        self.model: str = data.get("model", "tts-1-hd")
+
+
+class PodcastAudioConfig:
+    """Podcast audio configuration."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.background_music_volume: float = data.get("background_music_volume", 0.03)
+        self.output_dir: str = data.get("output_dir", "./output/podcasts")
+
+
+class PodcastYouTubeConfig:
+    """Podcast YouTube upload configuration."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.category_id: str = data.get("category_id", "28")
+        self.privacy_status: str = data.get("privacy_status", "public")
+        self.made_for_kids: bool = data.get("made_for_kids", False)
+
+
+class PodcastFeedConfig:
+    """Podcast RSS feed configuration."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.title: str = data.get("title", "Noyau Daily Tech Digest")
+        self.description: str = data.get(
+            "description",
+            "Your daily briefing on what matters in tech. Top 5 stories in under 10 minutes.",
+        )
+        self.author: str = data.get("author", "Noyau News")
+        self.email: str = data.get("email", "hello@noyau.news")
+        self.category: str = data.get("category", "Technology")
+        self.subcategory: str = data.get("subcategory", "Tech News")
+        self.language: str = data.get("language", "en-us")
+        self.explicit: bool = data.get("explicit", False)
+        self.artwork_url: str = data.get("artwork_url", "https://noyau.news/podcast-artwork.jpg")
+
+
+class PodcastConfig:
+    """Podcast generation configuration from config.yml."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.enabled: bool = data.get("enabled", False)
+        self.story_count: int = data.get("story_count", 5)
+        self.target_duration_minutes: int = data.get("target_duration_minutes", 8)
+
+        self.tts = PodcastTTSConfig(data.get("tts", {}))
+        self.audio = PodcastAudioConfig(data.get("audio", {}))
+        self.youtube = PodcastYouTubeConfig(data.get("youtube", {}))
+        self.feed = PodcastFeedConfig(data.get("feed", {}))
+
+
 class AppConfig:
     """Combined application configuration from .env and config.yml."""
 
@@ -387,6 +445,7 @@ class AppConfig:
         self.tiktok = TikTokConfig(data.get("tiktok", {}), self.settings)
         self.instagram = InstagramConfig(data.get("instagram", {}), self.settings)
         self.video = VideoConfig(data.get("video", {}), self.settings)
+        self.podcast = PodcastConfig(data.get("podcast", {}))
 
 
 @lru_cache

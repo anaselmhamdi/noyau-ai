@@ -395,3 +395,38 @@ video:
       - "programming"
       - "noyau"
       - "developer news"
+
+# Podcast generation for daily audio digest
+podcast:
+  enabled: true  # Set to true once OpenAI API key is configured
+  story_count: 5  # Number of stories to include (top N)
+  target_duration_minutes: 8  # Target podcast duration
+
+  # TTS settings (OpenAI)
+  tts:
+    provider: "openai"
+    voice: "nova"  # Options: alloy, echo, fable, onyx, nova, shimmer
+    model: "tts-1-hd"  # Options: tts-1, tts-1-hd (higher quality)
+
+  # Audio settings
+  audio:
+    background_music_volume: 0.03  # Very subtle background music
+    output_dir: "./output/podcasts"
+
+  # YouTube upload settings for podcast (audio-only video)
+  youtube:
+    category_id: "28"  # Science & Technology
+    privacy_status: "public"
+    made_for_kids: false
+
+  # RSS feed metadata
+  feed:
+    title: "Noyau Daily Tech Digest"
+    description: "Your daily briefing on what matters in tech. Top 5 stories in under 10 minutes."
+    author: "Noyau News"
+    email: "hello@noyau.news"
+    category: "Technology"
+    subcategory: "Tech News"
+    language: "en-us"
+    explicit: false
+    artwork_url: "https://noyau.news/podcast-artwork.jpg"
