@@ -17,7 +17,7 @@ from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
 from apscheduler.triggers.cron import CronTrigger
 
 from app.config import get_settings
-from app.core.database import AsyncSessionLocal, engine
+from app.core.database import AsyncSessionLocal, scheduler_engine
 from app.core.logging import get_logger
 from app.ingest.orchestrator import run_hourly_ingest
 
@@ -141,7 +141,8 @@ async def start_scheduler() -> AsyncScheduler | None:
         return None
 
     # Use PostgreSQL for job persistence and schedule coordination
-    data_store = SQLAlchemyDataStore(engine)
+    # Uses dedicated scheduler_engine with aggressive connection recycling
+    data_store = SQLAlchemyDataStore(scheduler_engine)
     scheduler = AsyncScheduler(data_store=data_store)
 
     # Start the scheduler first (required before calling other methods in APScheduler 4.x)

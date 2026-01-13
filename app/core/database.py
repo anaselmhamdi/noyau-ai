@@ -54,6 +54,21 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    pool_recycle=280,  # Recycle connections before Neon's 5min idle timeout
+    connect_args=connect_args,
+)
+
+# Separate engine for APScheduler with aggressive recycling
+# APScheduler holds connections longer for polling, so we use:
+# - Smaller pool since scheduler only needs 1-2 connections
+# - Shorter recycle to handle Neon's idle timeout
+scheduler_engine = create_async_engine(
+    clean_url,
+    echo=False,
+    pool_pre_ping=True,
+    pool_size=2,
+    max_overflow=2,
+    pool_recycle=180,  # More aggressive recycling for scheduler
     connect_args=connect_args,
 )
 
