@@ -3,14 +3,15 @@ Video generation job for creating videos from existing issue data.
 
 Run with: python -m app.jobs.video_generate
 Options:
-  --date DATE   Issue date (default: today)
-  --count N     Number of videos to generate (default: from config, typically 3)
-  --dry-run     Preview without generating videos
+  --date DATE         Issue date (default: today)
+  --count N           Number of videos to generate (default: from config, typically 3)
+  --output-dir PATH   Output directory for videos (default: from config)
+  --dry-run           Preview without generating videos
 
 Examples:
   python -m app.jobs.video_generate
   python -m app.jobs.video_generate --date 2026-01-13
-  python -m app.jobs.video_generate --count 1
+  python -m app.jobs.video_generate --output-dir /tmp/videos
 """
 
 import argparse
@@ -89,6 +90,7 @@ def determine_topic(cluster: Cluster) -> str:
 async def main(
     issue_date: date | None = None,
     count: int | None = None,
+    output_dir: str | None = None,
     dry_run: bool = False,
 ) -> None:
     """Run the video generation job."""
@@ -108,9 +110,13 @@ async def main(
     if count is None:
         count = video_config.count
 
+    # Use provided output_dir or fall back to config
+    output_path = Path(output_dir) if output_dir else Path(video_config.output_dir)
+
     logger.bind(
         issue_date=str(issue_date),
         count=count,
+        output_dir=str(output_path),
         dry_run=dry_run,
     ).info("video_generate_started")
 
@@ -132,13 +138,13 @@ async def main(
             return
 
         print(f"Found {len(clusters_with_summaries)} clusters with summaries")
+        print(f"Output directory: {output_path}")
 
         # Take top N for video generation
         top_clusters = clusters_with_summaries[:count]
         print(f"Generating videos for top {len(top_clusters)} stories")
         print("-" * 40)
 
-        output_dir = Path(video_config.output_dir)
         results = []
 
         for rank, cluster in enumerate(top_clusters, start=1):
@@ -162,7 +168,7 @@ async def main(
                 rank=rank,
                 issue_date=issue_date,
                 cluster_id=str(cluster.id),
-                output_dir=output_dir,
+                output_dir=output_path,
                 config=video_config,
                 db=db,
                 dry_run=False,
@@ -214,10 +220,23 @@ if __name__ == "__main__":
         help="Number of videos to generate. Default: from config",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory for videos. Default: from config",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview without generating videos",
     )
     args = parser.parse_args()
 
-    asyncio.run(main(issue_date=args.date, count=args.count, dry_run=args.dry_run))
+    asyncio.run(
+        main(
+            issue_date=args.date,
+            count=args.count,
+            output_dir=args.output_dir,
+            dry_run=args.dry_run,
+        )
+    )
