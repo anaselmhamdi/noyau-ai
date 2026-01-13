@@ -272,6 +272,38 @@ class S3StorageService:
                 public=False,
             )
 
+    async def download_file(self, key: str, destination: Path) -> bool:
+        """
+        Download a file from S3.
+
+        Args:
+            key: S3 object key to download
+            destination: Local path to save the file
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self._configured:
+            logger.warning("s3_not_configured_skipping_download")
+            return False
+
+        try:
+            # Ensure parent directory exists
+            destination.parent.mkdir(parents=True, exist_ok=True)
+
+            self._client.download_file(
+                self.bucket_name,
+                key,
+                str(destination),
+            )
+
+            logger.bind(key=key, destination=str(destination)).info("file_downloaded_from_s3")
+            return True
+
+        except ClientError as e:
+            logger.bind(key=key, error=str(e)).error("s3_download_failed")
+            return False
+
     async def delete_file(self, key: str) -> bool:
         """
         Delete a file from S3.

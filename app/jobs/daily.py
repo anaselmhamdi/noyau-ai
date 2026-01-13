@@ -41,6 +41,7 @@ from app.services.instagram_service import send_instagram_reels
 from app.services.slack_dm_service import send_slack_digests
 from app.services.tiktok_service import send_tiktok_videos
 from app.services.twitter_service import send_twitter_digest
+from app.services.youtube_service import send_youtube_podcast, send_youtube_shorts
 from app.video.orchestrator import generate_videos_for_issue
 
 logger = get_logger(__name__)
@@ -206,28 +207,23 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
             dispatch_results: dict[str, bool] = {}
 
             # =====================================================================
-            # GENERATE: Video (YouTube) - must run before dispatchers
+            # GENERATE: Video - must run before dispatchers
             # =====================================================================
             video_results: list = []
+            ranked_with_summaries = result.get("ranked_with_summaries", [])
             if config.video.enabled:
                 try:
-                    ranked_with_summaries = result.get("ranked_with_summaries", [])
                     video_results = await generate_videos_for_issue(
                         issue_date=issue_date,
                         ranked_with_summaries=ranked_with_summaries,
                         db=db,
                         dry_run=False,
+                        skip_youtube=True,  # YouTube is now a dispatcher
                     )
-                    videos_published = sum(1 for v in video_results if v.youtube_video_id)
-                    logger.bind(
-                        videos_generated=len(video_results),
-                        videos_published=videos_published,
-                    ).info("videos_generated")
-                    dispatch_results["youtube"] = videos_published > 0
+                    logger.bind(videos_generated=len(video_results)).info("videos_generated")
                 except Exception as e:
                     logger.bind(error=str(e)).error("video_generation_failed")
-                    dispatch_results["youtube"] = False
-                    await _notify_dispatch_error("YouTube/Video", e)
+                    await _notify_dispatch_error("Video Generation", e)
 
             # =====================================================================
             # GENERATE: Podcast - must run before dispatchers
@@ -363,6 +359,73 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
                     logger.bind(error=str(e)).error("instagram_send_failed")
                     dispatch_results["instagram"] = False
                     await _notify_dispatch_error("Instagram", e)
+
+            # =====================================================================
+            # DISPATCH: YouTube Shorts
+            # =====================================================================
+            if config.video.enabled and video_results:
+                try:
+                    # Get summaries and topics for metadata
+                    summaries = [
+                        s.output for _, _, _, s in ranked_with_summaries[: len(video_results)] if s
+                    ]
+                    topics = [
+                        info.get("topic", "general")
+                        for _, _, info, _ in ranked_with_summaries[: len(video_results)]
+                    ]
+
+                    youtube_shorts_result = await send_youtube_shorts(
+                        issue_date=issue_date,
+                        video_results=video_results,
+                        summaries=summaries,
+                        topics=topics,
+                    )
+                    if youtube_shorts_result.success:
+                        logger.bind(
+                            uploaded=youtube_shorts_result.uploaded_count,
+                            message=youtube_shorts_result.message,
+                        ).info("youtube_shorts_posted")
+                    dispatch_results["youtube_shorts"] = youtube_shorts_result.success
+                except Exception as e:
+                    logger.bind(error=str(e)).error("youtube_shorts_send_failed")
+                    dispatch_results["youtube_shorts"] = False
+                    await _notify_dispatch_error("YouTube Shorts", e)
+
+            # =====================================================================
+            # DISPATCH: YouTube Podcast
+            # =====================================================================
+            if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
+                try:
+                    from sqlalchemy import select
+
+                    from app.models.issue import Issue
+
+                    # Fetch issue record with podcast data
+                    issue_result = await db.execute(
+                        select(Issue).where(Issue.issue_date == issue_date)
+                    )
+                    issue = issue_result.scalar_one_or_none()
+
+                    if issue and issue.podcast_audio_url:
+                        youtube_podcast_result = await send_youtube_podcast(
+                            issue_date=issue_date,
+                            issue=issue,
+                        )
+                        if youtube_podcast_result.success:
+                            # Update issue with YouTube URL
+                            issue.podcast_youtube_url = youtube_podcast_result.video_url
+                            await db.commit()
+                            logger.bind(
+                                youtube_url=youtube_podcast_result.video_url,
+                                message=youtube_podcast_result.message,
+                            ).info("youtube_podcast_posted")
+                        dispatch_results["youtube_podcast"] = youtube_podcast_result.success
+                    else:
+                        logger.debug("no_podcast_available_for_youtube")
+                except Exception as e:
+                    logger.bind(error=str(e)).error("youtube_podcast_send_failed")
+                    dispatch_results["youtube_podcast"] = False
+                    await _notify_dispatch_error("YouTube Podcast", e)
 
             # Log dispatch summary
             successful = [k for k, v in dispatch_results.items() if v]

@@ -426,6 +426,7 @@ async def generate_single_video(
     config: VideoConfigLocal,
     db: AsyncSession | None = None,
     dry_run: bool = False,
+    skip_youtube: bool = False,
 ) -> VideoGenerationResult | None:
     """
     Generate a single video from a cluster summary.
@@ -533,38 +534,42 @@ async def generate_single_video(
             result.s3_url = s3_url
             await _update_video_status(db, video_record, VideoStatus.GENERATING, s3_url=s3_url)
 
-        # Step 6: Upload to YouTube
-        await _update_video_status(db, video_record, VideoStatus.UPLOADING)
+        # Step 6: Upload to YouTube (if not skipped)
+        if not skip_youtube:
+            await _update_video_status(db, video_record, VideoStatus.UPLOADING)
 
-        youtube_result = await _step_upload_youtube(
-            video_path, summary, topic, rank, config.youtube, log
-        )
-
-        if youtube_result:
-            video_id, video_url = youtube_result
-            result.youtube_video_id = video_id
-            result.youtube_url = video_url
-            await _update_video_status(
-                db,
-                video_record,
-                VideoStatus.PUBLISHED,
-                youtube_video_id=video_id,
-                youtube_url=video_url,
+            youtube_result = await _step_upload_youtube(
+                video_path, summary, topic, rank, config.youtube, log
             )
+
+            if youtube_result:
+                video_id, video_url = youtube_result
+                result.youtube_video_id = video_id
+                result.youtube_url = video_url
+                await _update_video_status(
+                    db,
+                    video_record,
+                    VideoStatus.PUBLISHED,
+                    youtube_video_id=video_id,
+                    youtube_url=video_url,
+                )
+            else:
+                await _update_video_status(
+                    db, video_record, VideoStatus.FAILED, "YouTube upload failed"
+                )
+
+            # Cleanup entire video directory after successful YouTube upload
+            if youtube_result:
+                log.info("cleaning_up_video_files")
+                shutil.rmtree(video_dir)
         else:
-            await _update_video_status(
-                db, video_record, VideoStatus.FAILED, "YouTube upload failed"
-            )
+            # Mark as ready for dispatch (S3 upload complete)
+            await _update_video_status(db, video_record, VideoStatus.PUBLISHED)
 
         # Cleanup temporary clips
         clips_dir = video_dir / "clips"
         if clips_dir.exists():
             shutil.rmtree(clips_dir)
-
-        # Cleanup entire video directory after successful YouTube upload
-        if youtube_result:
-            log.info("cleaning_up_video_files")
-            shutil.rmtree(video_dir)
 
         return result
 
@@ -579,6 +584,7 @@ async def generate_videos_for_issue(
     ranked_with_summaries: list[tuple],
     db: AsyncSession | None = None,
     dry_run: bool = False,
+    skip_youtube: bool = False,
 ) -> list[VideoGenerationResult | CombinedVideoGenerationResult]:
     """
     Generate videos for the top stories in an issue.
@@ -635,6 +641,7 @@ async def generate_videos_for_issue(
             config=config,
             db=db,
             dry_run=dry_run,
+            skip_youtube=skip_youtube,
         )
 
         if result:
@@ -670,6 +677,7 @@ async def generate_videos_for_issue(
             config=config,
             db=db,
             dry_run=dry_run,
+            skip_youtube=skip_youtube,
         )
 
         if video_result:
@@ -697,6 +705,7 @@ async def generate_combined_video(
     config: VideoConfigLocal,
     db: AsyncSession | None = None,
     dry_run: bool = False,
+    skip_youtube: bool = False,
 ) -> CombinedVideoGenerationResult | None:
     """
     Generate a single combined video from top 3 stories.
@@ -800,21 +809,22 @@ async def generate_combined_video(
         if s3_url:
             result.s3_url = s3_url
 
-        # Step 7: Upload to YouTube with combined metadata
-        youtube_result = await _step_upload_combined_youtube(
-            video_path, summaries, issue_date, config.youtube, log
-        )
-        if youtube_result:
-            result.youtube_video_id, result.youtube_url = youtube_result
+        # Step 7: Upload to YouTube with combined metadata (if not skipped)
+        if not skip_youtube:
+            youtube_result = await _step_upload_combined_youtube(
+                video_path, summaries, issue_date, config.youtube, log
+            )
+            if youtube_result:
+                result.youtube_video_id, result.youtube_url = youtube_result
+
+            # Cleanup entire video directory after successful YouTube upload
+            if youtube_result:
+                log.info("cleaning_up_combined_video_files")
+                shutil.rmtree(video_dir)
 
         # Cleanup temporary clips
         if clips_dir.exists():
             shutil.rmtree(clips_dir)
-
-        # Cleanup entire video directory after successful YouTube upload
-        if youtube_result:
-            log.info("cleaning_up_combined_video_files")
-            shutil.rmtree(video_dir)
 
         return result
 
