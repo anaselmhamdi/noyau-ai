@@ -116,7 +116,7 @@ async def send_daily_digest(
     config = get_config()
 
     issue_url = f"{settings.base_url}/daily/{issue_date}"
-    discord_invite_url = config.discord.invite_url if config.discord.enabled else ""
+    discord_invite_url = config.discord_bot.invite_url if config.discord_bot.enabled else ""
 
     # Generate unsubscribe URL with HMAC token
     unsubscribe_token = generate_unsubscribe_token(email)
