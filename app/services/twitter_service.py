@@ -218,7 +218,7 @@ async def _post_tweet_with_retry(
     text: str,
     reply_to_id: str | None = None,
 ) -> TweetResult:
-    """Post tweet with automatic retry on rate limit."""
+    """Post tweet with automatic retry on rate limit with exponential backoff."""
     config = get_config()
 
     for attempt in range(config.twitter.max_retries):
@@ -228,8 +228,10 @@ async def _post_tweet_with_retry(
             return result
 
         if result.error and "rate limit" in result.error.lower():
-            delay = config.twitter.retry_delay_seconds * (attempt + 1)
-            logger.bind(attempt=attempt, delay=delay).warning("twitter_rate_limited")
+            # Exponential backoff: 30s, 60s, 120s, 240s...
+            base_delay = 30
+            delay = base_delay * (2**attempt)
+            logger.bind(attempt=attempt + 1, delay=delay).warning("twitter_rate_limited_waiting")
             await asyncio.sleep(delay)
             continue
 
@@ -477,3 +479,178 @@ async def send_twitter_digest(issue_date: date, items: list[dict[str, Any]]) -> 
     except Exception as e:
         logger.bind(error=str(e)).error("twitter_send_error")
         return False
+
+
+# -----------------------------------------------------------------------------
+# OAuth 1.0a 3-legged flow for authenticating other accounts
+# -----------------------------------------------------------------------------
+
+TWITTER_REQUEST_TOKEN_URL = "https://api.twitter.com/oauth/request_token"
+TWITTER_AUTHORIZE_URL = "https://api.twitter.com/oauth/authorize"
+TWITTER_ACCESS_TOKEN_URL = "https://api.twitter.com/oauth/access_token"
+
+# In-memory store for request tokens (in production, use Redis or DB)
+_request_token_store: dict[str, str] = {}
+
+
+@dataclass
+class TwitterOAuthTokens:
+    """OAuth tokens from Twitter."""
+
+    access_token: str
+    access_token_secret: str
+    user_id: str
+    screen_name: str
+
+
+async def get_request_token(callback_url: str) -> tuple[str, str] | None:
+    """
+    Step 1: Get a request token from Twitter.
+
+    Returns (oauth_token, oauth_token_secret) or None on failure.
+    """
+    config = get_config()
+
+    oauth_params = {
+        "oauth_callback": callback_url,
+        "oauth_consumer_key": config.twitter.api_key,
+        "oauth_nonce": base64.b64encode(hashlib.sha256(str(time.time()).encode()).digest()).decode(
+            "utf-8"
+        )[:32],
+        "oauth_signature_method": "HMAC-SHA1",
+        "oauth_timestamp": str(int(time.time())),
+        "oauth_version": "1.0",
+    }
+
+    signature = _generate_oauth_signature(
+        method="POST",
+        url=TWITTER_REQUEST_TOKEN_URL,
+        params=oauth_params,
+        consumer_secret=config.twitter.api_secret,
+        token_secret="",  # Empty for request token
+    )
+    oauth_params["oauth_signature"] = signature
+
+    auth_header = "OAuth " + ", ".join(
+        f'{urllib.parse.quote(k, safe="")}="{urllib.parse.quote(v, safe="")}"'
+        for k, v in sorted(oauth_params.items())
+    )
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                TWITTER_REQUEST_TOKEN_URL,
+                headers={"Authorization": auth_header},
+            )
+
+            if resp.status_code != 200:
+                logger.bind(status=resp.status_code, response=resp.text).error(
+                    "twitter_request_token_failed"
+                )
+                return None
+
+            # Parse response: oauth_token=xxx&oauth_token_secret=yyy&oauth_callback_confirmed=true
+            params = dict(urllib.parse.parse_qsl(resp.text))
+            oauth_token = params.get("oauth_token")
+            oauth_token_secret = params.get("oauth_token_secret")
+
+            if oauth_token and oauth_token_secret:
+                # Store token secret for later
+                _request_token_store[oauth_token] = oauth_token_secret
+                return oauth_token, oauth_token_secret
+
+            return None
+
+        except Exception as e:
+            logger.bind(error=str(e)).error("twitter_request_token_error")
+            return None
+
+
+def build_authorize_url(oauth_token: str) -> str:
+    """
+    Step 2: Build the URL to redirect user to Twitter for authorization.
+    """
+    return f"{TWITTER_AUTHORIZE_URL}?oauth_token={oauth_token}"
+
+
+async def exchange_verifier_for_tokens(
+    oauth_token: str,
+    oauth_verifier: str,
+) -> TwitterOAuthTokens | None:
+    """
+    Step 3: Exchange the verifier for access tokens.
+
+    Args:
+        oauth_token: Token from callback
+        oauth_verifier: Verifier from callback
+
+    Returns:
+        TwitterOAuthTokens with access credentials, or None on failure.
+    """
+    config = get_config()
+
+    # Get the stored token secret
+    oauth_token_secret = _request_token_store.get(oauth_token, "")
+
+    oauth_params = {
+        "oauth_consumer_key": config.twitter.api_key,
+        "oauth_nonce": base64.b64encode(hashlib.sha256(str(time.time()).encode()).digest()).decode(
+            "utf-8"
+        )[:32],
+        "oauth_signature_method": "HMAC-SHA1",
+        "oauth_timestamp": str(int(time.time())),
+        "oauth_token": oauth_token,
+        "oauth_verifier": oauth_verifier,
+        "oauth_version": "1.0",
+    }
+
+    signature = _generate_oauth_signature(
+        method="POST",
+        url=TWITTER_ACCESS_TOKEN_URL,
+        params=oauth_params,
+        consumer_secret=config.twitter.api_secret,
+        token_secret=oauth_token_secret,
+    )
+    oauth_params["oauth_signature"] = signature
+
+    auth_header = "OAuth " + ", ".join(
+        f'{urllib.parse.quote(k, safe="")}="{urllib.parse.quote(v, safe="")}"'
+        for k, v in sorted(oauth_params.items())
+    )
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                TWITTER_ACCESS_TOKEN_URL,
+                headers={"Authorization": auth_header},
+            )
+
+            if resp.status_code != 200:
+                logger.bind(status=resp.status_code, response=resp.text).error(
+                    "twitter_access_token_failed"
+                )
+                return None
+
+            # Parse response
+            params = dict(urllib.parse.parse_qsl(resp.text))
+            access_token = params.get("oauth_token")
+            access_token_secret = params.get("oauth_token_secret")
+            user_id = params.get("user_id", "")
+            screen_name = params.get("screen_name", "")
+
+            if access_token and access_token_secret:
+                # Clean up stored request token
+                _request_token_store.pop(oauth_token, None)
+
+                return TwitterOAuthTokens(
+                    access_token=access_token,
+                    access_token_secret=access_token_secret,
+                    user_id=user_id,
+                    screen_name=screen_name,
+                )
+
+            return None
+
+        except Exception as e:
+            logger.bind(error=str(e)).error("twitter_access_token_error")
+            return None
