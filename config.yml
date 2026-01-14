@@ -333,6 +333,9 @@ tiktok:
   redirect_uri: "https://noyau.news/auth/tiktok/callback"
   retry_delay_seconds: 5
   max_retries: 3
+  # Browser-based uploader (Selenium + cookies - no API)
+  cookies_path: null  # Path to cookies.txt or set TIKTOK_COOKIES_PATH env var
+  browser_headless: true  # Run Chrome in headless mode (requires Chrome installed)
 
 # Instagram Reels via Graph API
 # Uses Facebook's Instagram Graph API to post Reels

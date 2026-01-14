@@ -42,6 +42,8 @@ dependencies = [
     "scipy>=1.17.0",
     # Rate limiting
     "slowapi>=0.1",
+    # TikTok browser upload (Selenium-based)
+    "tiktok-uploader>=0.4",
 ]
 
 [project.scripts]
