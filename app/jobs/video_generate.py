@@ -132,153 +132,155 @@ async def main(
         dry_run=dry_run,
     ).info("video_generate_started")
 
+    # Fetch clusters in a separate session to avoid connection timeout during encoding
+    # Video encoding can take several minutes, causing Neon serverless to close the connection
     async with AsyncSessionLocal() as db:
-        # Fetch clusters with summaries
         clusters = await get_clusters_for_date(db, issue_date)
 
-        if not clusters:
-            print(f"No clusters found for {issue_date}")
-            logger.bind(issue_date=str(issue_date)).warning("no_clusters_found")
-            return
+    if not clusters:
+        print(f"No clusters found for {issue_date}")
+        logger.bind(issue_date=str(issue_date)).warning("no_clusters_found")
+        return
 
-        # Filter to clusters with summaries
-        clusters_with_summaries = [c for c in clusters if c.summary]
+    # Filter to clusters with summaries
+    clusters_with_summaries = [c for c in clusters if c.summary]
 
-        if not clusters_with_summaries:
-            print(f"No cluster summaries found for {issue_date}")
-            logger.bind(issue_date=str(issue_date)).warning("no_summaries_found")
-            return
+    if not clusters_with_summaries:
+        print(f"No cluster summaries found for {issue_date}")
+        logger.bind(issue_date=str(issue_date)).warning("no_summaries_found")
+        return
 
-        print(f"Found {len(clusters_with_summaries)} clusters with summaries")
-        print(f"Output directory: {output_path}")
-        print(f"Mode: {'Combined' if use_combined else 'Individual'}")
+    print(f"Found {len(clusters_with_summaries)} clusters with summaries")
+    print(f"Output directory: {output_path}")
+    print(f"Mode: {'Combined' if use_combined else 'Individual'}")
 
-        # Take top N for video generation
-        top_clusters = clusters_with_summaries[:count]
+    # Take top N for video generation
+    top_clusters = clusters_with_summaries[:count]
 
-        # Combined mode: single video with all stories
-        if use_combined:
-            print(f"Generating combined video for top {len(top_clusters)} stories")
-            print("-" * 40)
-
-            summaries = []
-            topics = []
-            cluster_ids = []
-
-            for cluster in top_clusters:
-                summary = cluster.summary
-                assert summary is not None  # Filtered above
-                print(f"  - {summary.headline[:60]}...")
-                summaries.append(summary_to_distill_output(summary))
-                topics.append(determine_topic(cluster))
-                cluster_ids.append(str(cluster.id))
-
-            if len(summaries) < 3:
-                print(
-                    f"\nError: Need at least 3 stories for combined video, only found {len(summaries)}"
-                )
-                return
-
-            result = await generate_combined_video(
-                summaries=summaries[:3],
-                topics=topics[:3],
-                issue_date=issue_date,
-                cluster_ids=cluster_ids[:3],
-                output_dir=output_path,
-                config=video_config,
-                db=db,
-                dry_run=dry_run,
-            )
-
-            print("\n" + "=" * 40)
-            if dry_run:
-                if result:
-                    print("Dry run complete. Combined script generated:")
-                    print(f"  Hook: {result.script.hook}")
-                    print(f"  Stories: {len(result.script.stories)}")
-                else:
-                    print("Dry run failed - could not generate script")
-            else:
-                if result:
-                    print("Combined video generated successfully!")
-                    print(f"  Path: {result.video_path}")
-                    if result.youtube_url:
-                        print(f"  YouTube: {result.youtube_url}")
-                    if result.s3_url:
-                        print(f"  S3: {result.s3_url}")
-                else:
-                    print("Combined video generation failed")
-
-            logger.bind(
-                issue_date=str(issue_date),
-                combined=True,
-                success=result is not None,
-            ).info("video_generate_completed")
-            return
-
-        # Individual mode: separate video per story
-        print(f"Generating videos for top {len(top_clusters)} stories")
+    # Combined mode: single video with all stories
+    if use_combined:
+        print(f"Generating combined video for top {len(top_clusters)} stories")
         print("-" * 40)
 
-        results = []
+        summaries = []
+        topics = []
+        cluster_ids = []
 
-        for rank, cluster in enumerate(top_clusters, start=1):
+        for cluster in top_clusters:
             summary = cluster.summary
             assert summary is not None  # Filtered above
-            print(f"\n[{rank}] {summary.headline[:60]}...")
+            print(f"  - {summary.headline[:60]}...")
+            summaries.append(summary_to_distill_output(summary))
+            topics.append(determine_topic(cluster))
+            cluster_ids.append(str(cluster.id))
 
-            if dry_run:
-                print("    (dry run - skipping generation)")
-                continue
-
-            # Convert to ClusterDistillOutput
-            distill_output = summary_to_distill_output(summary)
-
-            # Determine topic
-            topic = determine_topic(cluster)
-
-            # Generate video
-            video_result = await generate_single_video(
-                summary=distill_output,
-                topic=topic,
-                rank=rank,
-                issue_date=issue_date,
-                cluster_id=str(cluster.id),
-                output_dir=output_path,
-                config=video_config,
-                db=db,
-                dry_run=False,
+        if len(summaries) < 3:
+            print(
+                f"\nError: Need at least 3 stories for combined video, only found {len(summaries)}"
             )
+            return
 
-            if video_result:
-                results.append(video_result)
-                print(f"    ✓ Generated: {video_result.video_path}")
-                if video_result.youtube_url:
-                    print(f"    ✓ YouTube: {video_result.youtube_url}")
-                if video_result.s3_url:
-                    print(f"    ✓ S3: {video_result.s3_url}")
-            else:
-                print("    ✗ Generation failed")
+        # Generate video without DB session - open fresh session after for saving
+        result = await generate_combined_video(
+            summaries=summaries[:3],
+            topics=topics[:3],
+            issue_date=issue_date,
+            cluster_ids=cluster_ids[:3],
+            output_dir=output_path,
+            config=video_config,
+            db=None,  # Don't hold DB connection during encoding
+            dry_run=dry_run,
+        )
 
-        # Summary
         print("\n" + "=" * 40)
         if dry_run:
-            print(f"Dry run complete. Would generate {len(top_clusters)} videos.")
+            if result:
+                print("Dry run complete. Combined script generated:")
+                print(f"  Hook: {result.script.hook}")
+                print(f"  Stories: {len(result.script.stories)}")
+            else:
+                print("Dry run failed - could not generate script")
         else:
-            print(f"Generated {len(results)}/{len(top_clusters)} videos")
-
-            if results:
-                print("\nGenerated videos:")
-                for r in results:
-                    print(f"  - {r.video_path}")
-                    if r.s3_url:
-                        print(f"    S3: {r.s3_url}")
+            if result:
+                print("Combined video generated successfully!")
+                print(f"  Path: {result.video_path}")
+                if result.youtube_url:
+                    print(f"  YouTube: {result.youtube_url}")
+                if result.s3_url:
+                    print(f"  S3: {result.s3_url}")
+            else:
+                print("Combined video generation failed")
 
         logger.bind(
             issue_date=str(issue_date),
-            total=len(top_clusters),
-            successful=len(results),
+            combined=True,
+            success=result is not None,
         ).info("video_generate_completed")
+        return
+
+    # Individual mode: separate video per story
+    print(f"Generating videos for top {len(top_clusters)} stories")
+    print("-" * 40)
+
+    results = []
+
+    for rank, cluster in enumerate(top_clusters, start=1):
+        summary = cluster.summary
+        assert summary is not None  # Filtered above
+        print(f"\n[{rank}] {summary.headline[:60]}...")
+
+        if dry_run:
+            print("    (dry run - skipping generation)")
+            continue
+
+        # Convert to ClusterDistillOutput
+        distill_output = summary_to_distill_output(summary)
+
+        # Determine topic
+        topic = determine_topic(cluster)
+
+        # Generate video without DB session to avoid connection timeout
+        video_result = await generate_single_video(
+            summary=distill_output,
+            topic=topic,
+            rank=rank,
+            issue_date=issue_date,
+            cluster_id=str(cluster.id),
+            output_dir=output_path,
+            config=video_config,
+            db=None,  # Don't hold DB connection during encoding
+            dry_run=False,
+        )
+
+        if video_result:
+            results.append(video_result)
+            print(f"    ✓ Generated: {video_result.video_path}")
+            if video_result.youtube_url:
+                print(f"    ✓ YouTube: {video_result.youtube_url}")
+            if video_result.s3_url:
+                print(f"    ✓ S3: {video_result.s3_url}")
+        else:
+            print("    ✗ Generation failed")
+
+    # Summary
+    print("\n" + "=" * 40)
+    if dry_run:
+        print(f"Dry run complete. Would generate {len(top_clusters)} videos.")
+    else:
+        print(f"Generated {len(results)}/{len(top_clusters)} videos")
+
+        if results:
+            print("\nGenerated videos:")
+            for r in results:
+                print(f"  - {r.video_path}")
+                if r.s3_url:
+                    print(f"    S3: {r.s3_url}")
+
+    logger.bind(
+        issue_date=str(issue_date),
+        total=len(top_clusters),
+        successful=len(results),
+    ).info("video_generate_completed")
 
 
 if __name__ == "__main__":
