@@ -312,11 +312,11 @@ twitter:
   max_retries: 3
 
 # TikTok Content Posting API
-# Uses OAuth 2.0 for authentication
-# Credentials configured via environment variables (see .env.example)
-# Initial setup: visit /api/auth/tiktok/authorize to get tokens
+# TikTok posting via browser automation (Selenium + cookies)
+# Export cookies from logged-in browser session using "Get cookies.txt" extension
+# Set TIKTOK_COOKIES_PATH in .env to the cookies file path
 tiktok:
-  enabled: false  # Set to true once API credentials are configured
+  enabled: true
   videos_per_day: 1  # Number of videos to post daily (top N)
   # Sandbox mode requires SELF_ONLY; change to PUBLIC_TO_EVERYONE after TikTok app approval
   privacy_level: "SELF_ONLY"  # PUBLIC_TO_EVERYONE, MUTUAL_FOLLOW_FRIENDS, SELF_ONLY
@@ -335,7 +335,7 @@ tiktok:
   max_retries: 3
   # Browser-based uploader (Selenium + cookies - no API)
   cookies_path: null  # Path to cookies.txt or set TIKTOK_COOKIES_PATH env var
-  browser_headless: true  # Run Chrome in headless mode (requires Chrome installed)
+  browser_headless: false  # Set to true for headless mode (may have issues with popups)
 
 # Instagram Reels via Graph API
 # Uses Facebook's Instagram Graph API to post Reels
