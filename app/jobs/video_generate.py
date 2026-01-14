@@ -29,6 +29,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger, setup_logging
 from app.models.cluster import Cluster, ClusterSummary
+from app.models.video import Video, VideoStatus
 from app.schemas.common import Citation
 from app.schemas.llm import ClusterDistillOutput
 from app.video.orchestrator import (
@@ -38,6 +39,33 @@ from app.video.orchestrator import (
 )
 
 logger = get_logger(__name__)
+
+
+async def save_video_record(
+    cluster_id: str,
+    issue_date: date,
+    rank: int,
+    script_json: dict | None,
+    duration_seconds: float | None,
+    video_path: str | None,
+    s3_url: str | None,
+) -> Video | None:
+    """Save a Video record to the database after generation completes."""
+    async with AsyncSessionLocal() as db:
+        video = Video(
+            cluster_id=cluster_id,
+            issue_date=issue_date,
+            rank=rank,
+            status=VideoStatus.PUBLISHED if s3_url else VideoStatus.GENERATING,
+            script_json=script_json,
+            duration_seconds=duration_seconds,
+            video_path=video_path,
+            s3_url=s3_url,
+        )
+        db.add(video)
+        await db.commit()
+        await db.refresh(video)
+        return video
 
 
 def summary_to_distill_output(summary: ClusterSummary) -> ClusterDistillOutput:
@@ -208,6 +236,19 @@ async def main(
                     print(f"  YouTube: {result.youtube_url}")
                 if result.s3_url:
                     print(f"  S3: {result.s3_url}")
+
+                # Save Video record with fresh DB session
+                for i, cid in enumerate(cluster_ids[:3]):
+                    await save_video_record(
+                        cluster_id=cid,
+                        issue_date=issue_date,
+                        rank=i,
+                        script_json=result.script.model_dump(),
+                        duration_seconds=result.duration_seconds,
+                        video_path=result.video_path,
+                        s3_url=result.s3_url,
+                    )
+                print("  ✓ Video records saved to database")
             else:
                 print("Combined video generation failed")
 
@@ -259,6 +300,18 @@ async def main(
                 print(f"    ✓ YouTube: {video_result.youtube_url}")
             if video_result.s3_url:
                 print(f"    ✓ S3: {video_result.s3_url}")
+
+            # Save Video record with fresh DB session
+            await save_video_record(
+                cluster_id=str(cluster.id),
+                issue_date=issue_date,
+                rank=rank,
+                script_json=video_result.script.model_dump(),
+                duration_seconds=video_result.duration_seconds,
+                video_path=video_result.video_path,
+                s3_url=video_result.s3_url,
+            )
+            print("    ✓ Video record saved to database")
         else:
             print("    ✗ Generation failed")
 
