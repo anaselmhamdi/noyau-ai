@@ -435,12 +435,16 @@ def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
     """
     Handle TikTok's content verification modal if it appears.
 
-    Clicks "Publier maintenant" / "Post now" button to proceed.
+    Presses Escape to dismiss the modal and waits for verification to complete
+    naturally, rather than forcing an early publish.
 
     Returns:
         True if modal was found and handled, False otherwise
     """
+    import time
+
     from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support import expected_conditions
     from selenium.webdriver.support.ui import WebDriverWait
 
@@ -448,20 +452,38 @@ def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
         # Wait for modal to appear (short timeout - it may not appear)
         wait = WebDriverWait(driver, timeout)
 
-        # Look for the primary button in the modal (Publier maintenant / Post now)
-        modal_button = wait.until(
-            expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR, ".TUXModal .TUXButton--primary")
-            )
-        )
+        # Look for the modal
+        wait.until(expected_conditions.presence_of_element_located((By.CSS_SELECTOR, ".TUXModal")))
 
         logger.info("tiktok_content_verification_modal_detected")
-        modal_button.click()
-        logger.info("tiktok_content_verification_modal_dismissed")
+
+        # Press Escape to dismiss the modal and let verification complete
+        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        logger.info("tiktok_modal_dismissed_with_escape")
+
+        # Wait for verification to complete (up to 3 minutes total, checking every 60s)
+        for attempt in range(3):
+            logger.bind(attempt=attempt + 1).info("tiktok_waiting_for_verification")
+            time.sleep(60)
+
+            # Check if modal reappeared
+            try:
+                modal = driver.find_element(By.CSS_SELECTOR, ".TUXModal")
+                if modal.is_displayed():
+                    # Modal still there, press Escape again
+                    driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                    logger.info("tiktok_modal_dismissed_again")
+                else:
+                    # Modal gone, verification likely complete
+                    break
+            except Exception:
+                # Modal not found, verification complete
+                break
+
         return True
 
     except Exception:
-        # Modal didn't appear or couldn't be clicked - that's fine
+        # Modal didn't appear - that's fine
         return False
 
 
