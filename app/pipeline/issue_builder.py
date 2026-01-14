@@ -164,6 +164,14 @@ async def save_issue_to_db(
     """Save the issue and clusters to the database."""
     settings = get_settings()
 
+    # Check if issue already exists for this date
+    existing_result = await db.execute(select(Issue).where(Issue.issue_date == issue_date))
+    existing_issue: Issue | None = existing_result.scalar_one_or_none()
+
+    if existing_issue is not None:
+        logger.bind(date=str(issue_date)).warning("issue_already_exists_skipping_save")
+        return existing_issue
+
     # Create issue
     issue = Issue(
         issue_date=issue_date,
