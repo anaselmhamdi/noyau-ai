@@ -39,9 +39,70 @@ from app.podcast.script_generator import generate_podcast_script
 from app.podcast.video_generator import generate_podcast_video
 from app.schemas.common import Citation
 from app.schemas.llm import ClusterDistillOutput
+from app.schemas.video import YouTubeMetadata
 from app.services.storage_service import get_storage_service
+from app.video.uploader import YouTubeUploader
 
 logger = get_logger(__name__)
+
+
+def create_podcast_youtube_metadata(
+    issue_date: date,
+    episode_number: int,
+    duration_seconds: float,
+    story_headlines: list[str],
+) -> YouTubeMetadata:
+    """Create YouTube metadata for podcast video."""
+    # Format title
+    title = f"Noyau Daily #{episode_number} - {issue_date.strftime('%B %d, %Y')}"
+    if len(title) > 100:
+        title = f"Noyau Daily #{episode_number} - {issue_date.strftime('%b %d')}"
+
+    # Build description
+    duration_min = int(duration_seconds / 60)
+    description_parts = [
+        f"🎙️ Noyau Daily Podcast - Episode #{episode_number}",
+        f"📅 {issue_date.strftime('%B %d, %Y')}",
+        f"⏱️ {duration_min} minutes",
+        "",
+        "Today's top tech stories:",
+    ]
+
+    for i, headline in enumerate(story_headlines[:5], 1):
+        description_parts.append(f"{i}. {headline}")
+
+    description_parts.extend(
+        [
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━━━",
+            "🌐 Website: https://noyau.news",
+            "🎧 Podcast RSS: https://pub-eff486c4dc394d639d49246799fb48ae.r2.dev/podcast/feed.xml",
+            "📧 Subscribe for daily tech digest",
+            "",
+            "#technews #podcast #noyau #dailydigest",
+        ]
+    )
+
+    description = "\n".join(description_parts)
+
+    tags = [
+        "tech news",
+        "podcast",
+        "noyau",
+        "daily digest",
+        "technology",
+        "developer news",
+        "AI news",
+    ]
+
+    return YouTubeMetadata(
+        title=title,
+        description=description,
+        tags=tags,
+        category_id="28",  # Science & Technology
+        privacy_status="public",
+        made_for_kids=False,
+    )
 
 
 def summary_to_distill_output(summary: ClusterSummary) -> ClusterDistillOutput:
@@ -367,18 +428,116 @@ async def regenerate_rss_feed(db: AsyncSession, output_dir: Path) -> None:
         logger.info("podcast_rss_feed_uploaded")
 
 
+async def upload_podcast_to_youtube(issue_date: date) -> str | None:
+    """Upload existing podcast video to YouTube from S3.
+
+    Downloads the video from S3 and uploads to YouTube.
+    Returns YouTube URL on success.
+    """
+    import httpx
+
+    # Get issue data
+    async with AsyncSessionLocal() as db:
+        issue = await get_issue_for_date(db, issue_date)
+        if not issue:
+            print(f"No issue found for {issue_date}")
+            return None
+
+        # Get clusters for headlines
+        clusters = await get_clusters_for_date(db, issue_date)
+
+        # Get episode number
+        count_stmt = select(func.count()).where(
+            Issue.podcast_audio_url.isnot(None),
+            Issue.issue_date < issue_date,
+        )
+        count_result = await db.execute(count_stmt)
+        episode_number = (count_result.scalar() or 0) + 1
+
+    # Check if video exists on S3
+    video_s3_url = f"https://pub-eff486c4dc394d639d49246799fb48ae.r2.dev/podcasts/{issue_date.isoformat()}/noyau_daily.mp4"
+
+    # Download video to temp file
+    print("Downloading podcast video from S3...")
+    temp_dir = Path(tempfile.mkdtemp(prefix=f"noyau_podcast_yt_{issue_date}_"))
+    video_path = temp_dir / "noyau_daily.mp4"
+
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.get(video_s3_url)
+            response.raise_for_status()
+            video_path.write_bytes(response.content)
+            print(f"  Downloaded: {len(response.content) / 1024 / 1024:.1f} MB")
+    except Exception as e:
+        print(f"Failed to download video: {e}")
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return None
+
+    # Get story headlines
+    clusters_with_summaries = [c for c in clusters if c.summary]
+    story_headlines = [c.summary.headline for c in clusters_with_summaries[:5]]
+
+    # Estimate duration from audio URL if we have it
+    duration_seconds = issue.podcast_duration_seconds or 480
+
+    # Create metadata
+    metadata = create_podcast_youtube_metadata(
+        issue_date=issue_date,
+        episode_number=episode_number,
+        duration_seconds=duration_seconds,
+        story_headlines=story_headlines,
+    )
+
+    # Upload to YouTube
+    print("\nUploading to YouTube...")
+    uploader = YouTubeUploader()
+    result = await uploader.upload_video(video_path, metadata)
+
+    # Cleanup
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+    if result:
+        video_id, _ = result
+        youtube_url = f"https://youtube.com/watch?v={video_id}"
+        print(f"  YouTube URL: {youtube_url}")
+
+        # Update Issue record
+        async with AsyncSessionLocal() as db:
+            stmt = select(Issue).where(Issue.issue_date == issue_date)
+            db_result = await db.execute(stmt)
+            issue_to_update = db_result.scalar_one_or_none()
+            if issue_to_update:
+                issue_to_update.podcast_youtube_url = youtube_url
+                await db.commit()
+                print("Issue updated with YouTube URL")
+
+        return youtube_url
+    else:
+        print("YouTube upload failed")
+        return None
+
+
 async def main(
     issue_date: date | None = None,
     output_dir: str | None = None,
     dry_run: bool = False,
     skip_youtube: bool = False,
     skip_video: bool = False,
+    youtube_only: bool = False,
 ) -> None:
     """Run the podcast generation job."""
     setup_logging()
 
     if issue_date is None:
         issue_date = date.today()
+
+    # YouTube-only mode: just upload existing podcast video to YouTube
+    if youtube_only:
+        print(f"Uploading existing podcast for {issue_date} to YouTube...")
+        youtube_url = await upload_podcast_to_youtube(issue_date)
+        if youtube_url:
+            print(f"\nSuccess! YouTube URL: {youtube_url}")
+        return
 
     # Get podcast config
     config = get_config()
@@ -563,17 +722,37 @@ async def main(
     youtube_url = None
     if not skip_youtube and video_path and video_path.exists():
         print("\nUploading to YouTube...")
-        # YouTube upload would go here using existing YouTubeUploader
-        # from app.video.uploader import YouTubeUploader
-        print("  YouTube upload not yet integrated")
+        uploader = YouTubeUploader()
+
+        # Get story headlines from script
+        story_headlines = [story.headline for story in script.stories]
+
+        # Create podcast-specific metadata
+        metadata = create_podcast_youtube_metadata(
+            issue_date=issue_date,
+            episode_number=episode_number,
+            duration_seconds=audio_result.duration_seconds,
+            story_headlines=story_headlines,
+        )
+
+        result = await uploader.upload_video(video_path, metadata)
+        if result:
+            video_id, _ = result
+            # Use regular YouTube URL (not shorts)
+            youtube_url = f"https://youtube.com/watch?v={video_id}"
+            print(f"  YouTube URL: {youtube_url}")
+            logger.bind(video_id=video_id, youtube_url=youtube_url).info("podcast_youtube_uploaded")
+        else:
+            print("  YouTube upload failed")
+            logger.warning("podcast_youtube_upload_failed")
 
     # Step 6: Update Issue record with fresh DB session
     if s3_url:
         async with AsyncSessionLocal() as db:
             # Re-fetch issue to update
             stmt = select(Issue).where(Issue.issue_date == issue_date)
-            result = await db.execute(stmt)
-            issue_to_update = result.scalar_one_or_none()
+            db_result = await db.execute(stmt)
+            issue_to_update = db_result.scalar_one_or_none()
             if issue_to_update:
                 issue_to_update.podcast_audio_url = s3_url
                 issue_to_update.podcast_youtube_url = youtube_url
@@ -636,6 +815,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip video generation (audio only)",
     )
+    parser.add_argument(
+        "--youtube-only",
+        action="store_true",
+        help="Only upload existing podcast video to YouTube (downloads from S3)",
+    )
     args = parser.parse_args()
 
     asyncio.run(
@@ -645,5 +829,6 @@ if __name__ == "__main__":
             dry_run=args.dry_run,
             skip_youtube=args.skip_youtube,
             skip_video=args.skip_video,
+            youtube_only=args.youtube_only,
         )
     )
