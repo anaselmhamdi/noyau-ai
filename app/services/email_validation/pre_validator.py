@@ -26,6 +26,8 @@ RESERVED_DOMAINS = frozenset(
         # Common test patterns
         "example",
         "test",
+        # Spam domains
+        "testuser.dev",
     }
 )
 
