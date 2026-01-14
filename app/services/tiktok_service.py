@@ -514,6 +514,7 @@ def _upload_via_browser(
     import time
 
     driver = None
+    captured_driver = None
     try:
         # Patch tiktok-uploader to use system chromium and get driver reference
         _patch_tiktok_uploader_browser(headless)
@@ -522,7 +523,6 @@ def _upload_via_browser(
         import tiktok_uploader.browsers as tb
         from tiktok_uploader.upload import upload_video
 
-        captured_driver = None
         original_get_browser = tb.get_browser
 
         def capturing_get_browser(*args, **kwargs):
@@ -576,6 +576,20 @@ def _upload_via_browser(
             error="tiktok-uploader not installed. Run: pip install tiktok-uploader",
         )
     except Exception as e:
+        # Try to capture screenshot and HTML for debugging
+        active_driver = driver or captured_driver
+        if active_driver:
+            try:
+                active_driver.save_screenshot("/tmp/tiktok_error.png")
+                logger.info("tiktok_error_screenshot_saved")
+            except Exception:
+                pass
+            try:
+                with open("/tmp/tiktok_error.html", "w") as f:
+                    f.write(active_driver.page_source)
+                logger.info("tiktok_error_html_saved")
+            except Exception:
+                pass
         logger.bind(error=str(e)).error("tiktok_browser_upload_error")
         return TikTokPostResult(
             publish_id=None,
