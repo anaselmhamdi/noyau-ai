@@ -1,4 +1,5 @@
 import asyncio
+import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
@@ -10,6 +11,14 @@ from app.ingest.base import BaseFetcher, RawContent
 from app.ingest.normalizer import truncate_text
 
 logger = get_logger(__name__)
+
+# Pattern to match weekly/monthly article compilation posts
+# Matches: "Top 7 articles of the week", "Top 10 DEV posts this month", etc.
+# Does NOT match: "Top 7 tools", "Top 10 libraries", etc.
+COMPILATION_PATTERN = re.compile(
+    r"top\s+\d+\s+(\w+\s+)?(articles?|posts?|stories?|reads?)\s+(of\s+the|this|last)\s+(week|month|day)",
+    re.IGNORECASE,
+)
 
 
 class DevToFetcher(BaseFetcher):
@@ -88,6 +97,11 @@ class DevToFetcher(BaseFetcher):
 
         title = article.get("title", "")
         if not title:
+            return None
+
+        # Skip weekly/monthly article compilations
+        if COMPILATION_PATTERN.search(title):
+            logger.bind(title=title).debug("devto_skip_compilation")
             return None
 
         # Get description/excerpt
