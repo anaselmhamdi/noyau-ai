@@ -14,7 +14,7 @@ const podcastInfo = hasPodcast ? await infoRes.json() : null;
 const episodes = episodesRes.ok ? await episodesRes.json() : [];
 
 const latestEpisode = podcastInfo?.latest_episode || episodes[0] || null;
-const feedUrl = `${apiUrl}/api/podcast/feed.xml`;
+const feedUrl = 'https://noyau.news/api/podcast/feed.xml';
 
 const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
