@@ -15,9 +15,12 @@ Examples:
 
 import argparse
 import asyncio
+import shutil
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +38,19 @@ logger = get_logger(__name__)
 AVAILABLE_DESTINATIONS = ["youtube", "tiktok", "instagram"]
 
 
+async def download_from_s3(s3_url: str, output_path: Path) -> bool:
+    """Download a file from S3 public URL to local path."""
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.get(s3_url)
+            response.raise_for_status()
+            output_path.write_bytes(response.content)
+            return True
+    except Exception as e:
+        logger.bind(s3_url=s3_url, error=str(e)).error("s3_download_failed")
+        return False
+
+
 async def get_videos_for_date(db: AsyncSession, issue_date: date) -> list[Video]:
     """Query videos for the given date."""
     stmt = select(Video).where(Video.issue_date == issue_date).order_by(Video.rank)
@@ -48,25 +64,44 @@ async def dispatch_youtube(
     items: list[dict],
 ) -> tuple[bool, str]:
     """Upload videos to YouTube that don't have youtube_video_id yet."""
-    # Filter to videos that need YouTube upload
-    videos_to_upload = [v for v in videos if v.video_path and not v.youtube_video_id]
+    # Filter to videos that need YouTube upload (have video_path or s3_url)
+    videos_to_upload = [v for v in videos if (v.video_path or v.s3_url) and not v.youtube_video_id]
 
     if not videos_to_upload:
         # Check if all videos already have YouTube IDs
         already_uploaded = sum(1 for v in videos if v.youtube_video_id)
         if already_uploaded == len(videos):
             return True, f"All {already_uploaded} videos already uploaded to YouTube"
-        return False, "No videos with local files available for upload"
+        return False, "No videos with local files or S3 URLs available for upload"
 
     uploader = YouTubeUploader()
 
     uploaded = 0
     errors = []
+    temp_files: list[Path] = []  # Track temp files for cleanup
 
     for video in videos_to_upload:
-        video_path = Path(video.video_path)
-        if not video_path.exists():
-            errors.append(f"Rank {video.rank}: File not found ({video.video_path})")
+        # Try local file first, then download from S3
+        video_path = Path(video.video_path) if video.video_path else None
+        temp_file = None
+
+        if video_path and video_path.exists():
+            # Use local file
+            pass
+        elif video.s3_url:
+            # Download from S3 to temp file
+            temp_dir = Path(tempfile.mkdtemp(prefix="noyau_yt_"))
+            temp_file = temp_dir / "video.mp4"
+            logger.bind(s3_url=video.s3_url, rank=video.rank).info("downloading_from_s3")
+
+            if not await download_from_s3(video.s3_url, temp_file):
+                errors.append(f"Rank {video.rank}: Failed to download from S3")
+                continue
+
+            video_path = temp_file
+            temp_files.append(temp_dir)
+        else:
+            errors.append(f"Rank {video.rank}: No local file or S3 URL available")
             continue
 
         # Get corresponding item for metadata
@@ -105,6 +140,13 @@ async def dispatch_youtube(
             ).info("youtube_video_uploaded")
         else:
             errors.append(f"Rank {video.rank}: Upload failed")
+
+    # Cleanup temp files
+    for temp_dir in temp_files:
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception:
+            pass
 
     if errors:
         error_msg = "; ".join(errors)
