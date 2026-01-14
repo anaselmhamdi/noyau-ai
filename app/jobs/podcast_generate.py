@@ -26,19 +26,16 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.config import get_config
 from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger, setup_logging
-from app.models.cluster import Cluster, ClusterSummary
+from app.jobs.utils import determine_topic, get_clusters_for_date, summary_to_distill_output
 from app.models.issue import Issue
 from app.podcast.audio_generator import PodcastAudioGenerator
 from app.podcast.rss_feed import generate_podcast_rss, get_default_feed_config
 from app.podcast.script_generator import generate_podcast_script
 from app.podcast.video_generator import generate_podcast_video
-from app.schemas.common import Citation
-from app.schemas.llm import ClusterDistillOutput
 from app.schemas.video import YouTubeMetadata
 from app.services.storage_service import get_storage_service
 from app.video.uploader import YouTubeUploader
@@ -105,63 +102,12 @@ def create_podcast_youtube_metadata(
     )
 
 
-def summary_to_distill_output(summary: ClusterSummary) -> ClusterDistillOutput:
-    """Convert a ClusterSummary to ClusterDistillOutput for script generation."""
-    citations = [
-        Citation(url=c.get("url", ""), label=c.get("label", "Source"))
-        for c in (summary.citations_json or [])
-    ]
-    if not citations:
-        citations = [Citation(url="https://noyau.news", label="Noyau News")]
-
-    bullets = summary.bullets_json or []
-    if len(bullets) < 2:
-        bullets = bullets + ["See full story for details."] * (2 - len(bullets))
-    elif len(bullets) > 2:
-        bullets = bullets[:2]
-
-    return ClusterDistillOutput(
-        headline=summary.headline,
-        teaser=summary.teaser,
-        takeaway=summary.takeaway,
-        why_care=summary.why_care,
-        bullets=bullets,
-        citations=citations,
-        confidence=summary.confidence.value,
-    )
-
-
-async def get_clusters_for_date(db: AsyncSession, issue_date: date) -> list[Cluster]:
-    """Query clusters with summaries for the given date."""
-    stmt = (
-        select(Cluster)
-        .options(selectinload(Cluster.summary))
-        .where(Cluster.issue_date == issue_date)
-        .order_by(Cluster.cluster_score.desc())
-    )
-    result = await db.execute(stmt)
-    return list(result.scalars().all())
-
-
 async def get_issue_for_date(db: AsyncSession, issue_date: date) -> Issue | None:
     """Get Issue record for the given date."""
     stmt = select(Issue).where(Issue.issue_date == issue_date)
     result = await db.execute(stmt)
     issue: Issue | None = result.scalar_one_or_none()
     return issue
-
-
-def determine_topic(cluster: Cluster) -> str:
-    """Determine topic from cluster."""
-    if cluster.dominant_topic:
-        topic = cluster.dominant_topic.value
-        if topic in ("security",):
-            return "security"
-        elif topic in ("oss",):
-            return "oss"
-        elif topic in ("macro", "deepdive"):
-            return "ai"
-    return "general"
 
 
 async def upload_podcast_to_s3(
@@ -281,6 +227,7 @@ async def generate_podcast_for_issue(
     summaries = []
     topics = []
     for cluster in top_clusters:
+        assert cluster.summary is not None  # Filtered above
         summaries.append(summary_to_distill_output(cluster.summary))
         topics.append(determine_topic(cluster))
 
@@ -473,9 +420,8 @@ async def upload_podcast_to_youtube(issue_date: date) -> str | None:
         shutil.rmtree(temp_dir, ignore_errors=True)
         return None
 
-    # Get story headlines
-    clusters_with_summaries = [c for c in clusters if c.summary]
-    story_headlines = [c.summary.headline for c in clusters_with_summaries[:5]]
+    # Get story headlines (filter for clusters with summaries)
+    story_headlines = [c.summary.headline for c in clusters[:5] if c.summary is not None]
 
     # Estimate duration from audio URL if we have it
     duration_seconds = issue.podcast_duration_seconds or 480
@@ -605,6 +551,7 @@ async def main(
     summaries = []
     topics = []
     for cluster in top_clusters:
+        assert cluster.summary is not None  # Guaranteed by filter above
         summaries.append(summary_to_distill_output(cluster.summary))
         topics.append(determine_topic(cluster))
         print(f"  - {cluster.summary.headline[:60]}...")

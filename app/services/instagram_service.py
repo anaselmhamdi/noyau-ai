@@ -16,6 +16,7 @@ import httpx
 
 from app.config import get_config
 from app.core.logging import get_logger
+from app.services.social_utils import build_social_caption
 
 logger = get_logger(__name__)
 
@@ -239,38 +240,16 @@ async def _get_media_permalink(
 
 
 def build_reel_caption(item: dict[str, Any], rank: int) -> str:
-    """
-    Build an Instagram Reel caption from an issue item.
-
-    Args:
-        item: Issue item with headline, teaser, etc.
-        rank: Story rank (1-10)
-
-    Returns:
-        Formatted caption for Instagram (max 2200 chars)
-    """
+    """Build an Instagram Reel caption from an issue item."""
     config = get_config()
-
-    headline = item.get("headline", "")
-    teaser = item.get("teaser", "")
-
-    # Build caption
-    caption = f"{headline}\n\n{teaser}"
-
-    # Add hashtags if enabled
-    if config.instagram.include_hashtags:
-        hashtags = config.instagram.default_hashtags
-        hashtag_str = " ".join(f"#{tag}" for tag in hashtags)
-        caption = f"{caption}\n\n{hashtag_str}"
-
-    # Add CTA
-    caption = f"{caption}\n\nMore signal, less noise: noyau.news"
-
-    # Instagram caption limit is 2200 chars
-    if len(caption) > 2200:
-        caption = caption[:2197] + "..."
-
-    return caption
+    hashtags = config.instagram.default_hashtags if config.instagram.include_hashtags else None
+    return build_social_caption(
+        item,
+        rank,
+        include_date=False,
+        hashtags=hashtags,
+        max_length=2200,
+    )
 
 
 async def post_instagram_reel(

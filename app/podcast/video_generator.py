@@ -202,7 +202,7 @@ def create_waveform_frame(
 
         # Draw bar with rounded corners
         draw.rounded_rectangle(
-            [x, y_top, x + WAVEFORM_BAR_WIDTH, y_bottom],
+            (x, y_top, x + WAVEFORM_BAR_WIDTH, y_bottom),
             radius=WAVEFORM_BAR_WIDTH // 2,
             fill=WAVEFORM_COLOR,
         )
@@ -278,7 +278,7 @@ def generate_podcast_video(
         try:
             font = ImageFont.truetype(font_path, FONT_SIZE_TITLE)
         except Exception:
-            font = ImageFont.load_default()
+            font = ImageFont.load_default()  # type: ignore[assignment]
 
         # Prepare text
         title = "NOYAU DAILY"

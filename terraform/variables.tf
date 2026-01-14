@@ -80,27 +80,6 @@ variable "github_repo" {
   type        = string
 }
 
-# Twitter/Nitter credentials for X/Twitter ingestion
-variable "twitter_username" {
-  description = "Twitter username for Nitter session tokens"
-  type        = string
-  default     = ""
-}
-
-variable "twitter_password" {
-  description = "Twitter password for Nitter session tokens"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "twitter_totp_secret" {
-  description = "Twitter TOTP secret for 2FA (optional)"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
 # =============================================================================
 # Twitter API v2 (for posting)
 # =============================================================================

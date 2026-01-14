@@ -59,7 +59,6 @@ openssl rand -hex 32
 
 | Secret | Purpose | Setup |
 |--------|---------|-------|
-| `TWITTER_USERNAME/PASSWORD` | Nitter RSS feeds | Dedicated Twitter account |
 | `TWITTER_API_*` | Posting digest threads | [developer.twitter.com](https://developer.twitter.com) |
 | `POSTHOG_API_KEY` | Analytics | [posthog.com](https://posthog.com) |
 | `DISCORD_WEBHOOK_URL` | Notifications | Server Settings > Integrations > Webhooks |
@@ -179,8 +178,6 @@ docker compose logs watchtower
 | db (if local) | `docker compose ps db` | healthy |
 | api | `curl localhost:8000/health` | `{"status":"ok"}` |
 | caddy | `docker compose logs caddy` | TLS certificate obtained |
-| nitter | `docker compose ps nitter` | running |
-| nitter-redis | `docker compose ps nitter-redis` | healthy |
 
 - [ ] All services running: `docker compose ps`
 - [ ] No restart loops: `docker compose logs --tail=50`
@@ -223,10 +220,6 @@ docker compose logs watchtower
 |-----|----------|--------------|
 | Hourly Ingest | Every hour | Check `content_items` table for new records |
 | Daily Digest | 06:00 UTC | Check `issues` table, verify email sent |
-
-### Nitter Token Refresh
-- [ ] Timer enabled: `systemctl status nitter-refresh.timer`
-- [ ] Script accessible: `/opt/noyau/scripts/refresh_nitter_tokens.sh`
 
 ### Backup Timer
 - [ ] Timer enabled: `systemctl status noyau-backup.timer`

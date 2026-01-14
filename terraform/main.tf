@@ -76,11 +76,6 @@ resource "hcloud_server" "main" {
     github_token    = var.github_token
     github_repo     = var.github_repo
 
-    # Twitter/Nitter
-    twitter_username    = var.twitter_username
-    twitter_password    = var.twitter_password
-    twitter_totp_secret = var.twitter_totp_secret
-
     # Twitter API v2 (posting)
     twitter_api_key             = var.twitter_api_key
     twitter_api_secret          = var.twitter_api_secret

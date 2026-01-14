@@ -172,19 +172,6 @@ class SeedsConfig:
         self.bluesky_accounts: list[dict[str, str]] = data.get("bluesky_accounts", [])
 
 
-class NitterConfig:
-    """Nitter configuration from config.yml."""
-
-    def __init__(self, data: dict[str, Any]) -> None:
-        self.enabled: bool = data.get("enabled", True)
-        self.instances: list[str] = data.get(
-            "instances",
-            ["nitter.poast.org", "nitter.privacydev.net"],
-        )
-        self.timeout_seconds: int = data.get("timeout_seconds", 10)
-        self.max_retries: int = data.get("max_retries", 3)
-
-
 class DiscordConfig:
     """Discord configuration from config.yml and environment."""
 
@@ -437,7 +424,6 @@ class AppConfig:
         self.filters = FilterConfig(data.get("filters", {}))
         self.ranking = RankingConfig(data.get("ranking", {}))
         self.seeds = SeedsConfig(data.get("seeds", {}))
-        self.nitter = NitterConfig(data.get("nitter", {}))
         self.discord = DiscordConfig(data.get("discord", {}), self.settings)
         self.discord_bot = DiscordBotConfig(data.get("discord_bot", {}), self.settings)
         self.slack = SlackConfig(data.get("slack", {}), self.settings)

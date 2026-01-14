@@ -24,7 +24,7 @@ TOPIC_COLORS = {
 }
 
 
-def _get_embed_color(item: dict) -> int:
+def get_embed_color(item: dict) -> int:
     """Determine embed color based on content keywords."""
     headline = (item.get("headline") or "").lower()
     teaser = (item.get("teaser") or "").lower()
@@ -72,7 +72,7 @@ def build_digest_embeds(issue_date: date, items: list[dict]) -> list[dict]:
         embed = {
             "title": f"#{idx}  {item.get('headline', 'Untitled')}",
             "description": item.get("teaser", ""),
-            "color": _get_embed_color(item),
+            "color": get_embed_color(item),
             "fields": [],
         }
 

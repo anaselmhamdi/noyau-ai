@@ -16,7 +16,6 @@ from app.core.database import AsyncSessionLocal
 from app.core.datetime_utils import utc_now
 from app.core.logging import get_logger
 from app.models.messaging import MessagingConnection
-from app.services.discord_service import TOPIC_COLORS
 
 logger = get_logger(__name__)
 
@@ -31,24 +30,6 @@ class DiscordDMResult:
     failed: int
     success: bool
     message: str
-
-
-def _get_embed_color(item: dict) -> int:
-    """Determine embed color based on content keywords."""
-    headline = (item.get("headline") or "").lower()
-    teaser = (item.get("teaser") or "").lower()
-    content = f"{headline} {teaser}"
-
-    if any(kw in content for kw in ["release", "changelog", "v1.", "v2.", "launched"]):
-        return TOPIC_COLORS["release"]
-    if any(kw in content for kw in ["cve", "security", "vulnerability", "exploit", "patch"]):
-        return TOPIC_COLORS["security"]
-    if any(kw in content for kw in ["ai", "llm", "gpt", "claude", "model", "training"]):
-        return TOPIC_COLORS["ai"]
-    if any(kw in content for kw in ["kubernetes", "docker", "aws", "gcp", "azure", "cloud"]):
-        return TOPIC_COLORS["infrastructure"]
-
-    return TOPIC_COLORS["default"]
 
 
 def build_dm_embeds(issue_date: date, items: list[dict], base_url: str) -> list[dict]:

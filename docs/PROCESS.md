@@ -87,15 +87,6 @@ For each repo in config.seeds.github_release_feeds:
     4. Yield RawContent with source="github"
 ```
 
-**X/Twitter (via Nitter)**
-```
-For each account in config.seeds.x_accounts:
-    For each Nitter instance in config.nitter.instances:
-        1. Try: GET https://{instance}/{username}/rss
-        2. If success: parse and yield items
-        3. If fail: try next instance
-```
-
 **Reddit**
 ```
 For each subreddit in config.seeds.reddit_subreddits:

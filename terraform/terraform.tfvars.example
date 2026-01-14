@@ -51,17 +51,6 @@ github_token = "ghp_..."
 github_repo = "your-username/noyau-ai"
 
 # =============================================================================
-# Twitter/Nitter Credentials (Optional)
-# =============================================================================
-
-# Twitter account for Nitter session tokens (dedicated account recommended)
-twitter_username = ""
-twitter_password = ""
-
-# TOTP secret for 2FA (base32 string, only if 2FA enabled)
-twitter_totp_secret = ""
-
-# =============================================================================
 # Twitter API v2 (Optional - for posting daily digest threads)
 # =============================================================================
 

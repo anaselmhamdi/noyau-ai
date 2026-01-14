@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NoyauAI is a daily tech digest application for noyau.news. It ingests content from multiple sources (RSS, GitHub releases, X/Twitter via Nitter, Reddit, dev.to, YouTube), clusters related items into stories, scores them algorithmically, distills them with LLM (OpenAI), and delivers a curated 10-item daily digest via email.
+NoyauAI is a daily tech digest application for noyau.news. It ingests content from multiple sources (RSS, GitHub releases, Reddit, dev.to, YouTube, Bluesky), clusters related items into stories, scores them algorithmically, distills them with LLM (OpenAI), and delivers a curated 10-item daily digest via email.
 
 ## Commands
 
@@ -112,7 +112,7 @@ app/
 ├── models/        # SQLAlchemy ORM models
 ├── schemas/       # Pydantic request/response models
 ├── services/      # Business logic (email, validation)
-├── ingest/        # Content fetchers (RSS, Nitter, Reddit, etc.)
+├── ingest/        # Content fetchers (RSS, Reddit, Bluesky, etc.)
 ├── pipeline/      # Issue building (clustering, scoring, distillation)
 ├── jobs/          # CLI entry points for hourly/daily jobs
 └── email/         # Email templates

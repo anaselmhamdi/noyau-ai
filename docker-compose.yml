@@ -51,6 +51,11 @@ services:
     ports:
       - "8000:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   ui:
     build:
@@ -63,6 +68,11 @@ services:
       API_URL: http://api:8000
     ports:
       - "4321:4321"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4321/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   caddy:
     image: caddy:2-alpine
@@ -98,35 +108,7 @@ services:
       - ./config.yml:/app/config.yml:ro
     command: python -m app.jobs.discord_bot
 
-  # Self-hosted Nitter for X/Twitter RSS feeds
-  nitter-redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - nitter_redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  nitter:
-    image: zedeus/nitter:latest
-    platform: linux/amd64  # Required for Apple Silicon
-    restart: unless-stopped
-    depends_on:
-      nitter-redis:
-        condition: service_healthy
-    environment:
-      NITTER_SESSIONS_FILE: /data/sessions.jsonl
-    volumes:
-      - ./nitter/nitter.conf:/src/nitter.conf:ro
-      - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
-    ports:
-      - "8080:8080"
-
 volumes:
   postgres_data:
   caddy_data:
   caddy_config:
-  nitter_redis:

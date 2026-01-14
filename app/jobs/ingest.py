@@ -4,10 +4,8 @@ Individual ingestion source CLI for debugging.
 Run with: python -m app.jobs.ingest <command> [options]
 
 Examples:
-    python -m app.jobs.ingest fetch nitter --dry-run --verbose
-    python -m app.jobs.ingest fetch rss --limit 5
-    python -m app.jobs.ingest refresh-tokens
-    python -m app.jobs.ingest token-status
+    python -m app.jobs.ingest fetch rss --dry-run --verbose
+    python -m app.jobs.ingest fetch reddit --limit 5
 """
 
 import argparse
@@ -19,8 +17,6 @@ from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger, setup_logging
 from app.ingest.base import BaseFetcher
 from app.ingest.devto import create_devto_fetcher
-from app.ingest.nitter import create_nitter_fetcher
-from app.ingest.nitter_auth import NitterTokenManager
 from app.ingest.orchestrator import create_metrics_snapshot, upsert_content_item
 from app.ingest.reddit import create_reddit_fetcher
 from app.ingest.rss import create_rss_fetchers
@@ -30,7 +26,6 @@ logger = get_logger(__name__)
 
 # Map source names to their factory functions
 FETCHER_FACTORIES: dict[str, Callable[[AppConfig], BaseFetcher | list[BaseFetcher] | None]] = {
-    "nitter": create_nitter_fetcher,
     "rss": create_rss_fetchers,
     "reddit": create_reddit_fetcher,
     "devto": create_devto_fetcher,
@@ -156,75 +151,10 @@ async def run_fetcher(
     return stats
 
 
-def refresh_tokens() -> bool:
-    """Refresh Nitter/Twitter session tokens."""
-    print("Refreshing Twitter session tokens...")
-    print("-" * 60)
-
-    manager = NitterTokenManager()
-
-    # Show current status
-    sessions = manager.get_sessions()
-    print(f"Current sessions: {len(sessions)}")
-
-    # Attempt refresh
-    success = manager.refresh_token()
-
-    if success:
-        new_sessions = manager.get_sessions()
-        print(f"\nSuccess! Sessions: {len(new_sessions)}")
-        return True
-    else:
-        print("\nFailed to refresh tokens.")
-        print("Make sure TWITTER_USERNAME and TWITTER_PASSWORD are set in .env")
-        print("For 2FA accounts, also set TWITTER_TOTP_SECRET")
-        return False
-
-
-async def check_token_status() -> None:
-    """Check the status of Nitter tokens."""
-    print("Checking Nitter token status...")
-    print("-" * 60)
-
-    manager = NitterTokenManager()
-
-    # Show sessions
-    sessions = manager.get_sessions()
-    print(f"Sessions in file: {len(sessions)}")
-
-    for i, session in enumerate(sessions):
-        username = session.get("username", "unknown")
-        print(f"  [{i + 1}] @{username}")
-
-    if not sessions:
-        print("  (none)")
-        print("\nRun 'python -m app.jobs.ingest refresh-tokens' to create tokens")
-        return
-
-    # Check health
-    config = get_config()
-    nitter_url = None
-    for instance in config.nitter.instances:
-        if any(p in instance for p in ("localhost", "127.0.0.1", "nitter:")):
-            nitter_url = f"http://{instance}"
-            break
-
-    if nitter_url:
-        print(f"\nChecking health against {nitter_url}...")
-        is_healthy = await manager.check_token_health(nitter_url)
-        if is_healthy:
-            print("Status: HEALTHY")
-        else:
-            print("Status: UNHEALTHY (tokens may be expired)")
-            print("Run 'python -m app.jobs.ingest refresh-tokens' to refresh")
-    else:
-        print("\nNo self-hosted Nitter instance configured for health check")
-
-
 def main() -> None:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Ingestion debugging and token management CLI",
+        description="Ingestion debugging CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
@@ -237,8 +167,8 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python -m app.jobs.ingest fetch nitter --dry-run --verbose
-    python -m app.jobs.ingest fetch rss --limit 5
+    python -m app.jobs.ingest fetch rss --dry-run --verbose
+    python -m app.jobs.ingest fetch reddit --limit 5
         """,
     )
     fetch_parser.add_argument(
@@ -265,26 +195,12 @@ Examples:
         help="Maximum number of items to fetch (0 = unlimited)",
     )
 
-    # Token commands
-    subparsers.add_parser(
-        "refresh-tokens",
-        help="Refresh Twitter session tokens for Nitter",
-    )
-    subparsers.add_parser(
-        "token-status",
-        help="Check the status of Nitter tokens",
-    )
-
     args = parser.parse_args()
 
     setup_logging()
 
     if args.command == "fetch":
         asyncio.run(run_fetcher(args.source, args.dry_run, args.verbose, args.limit))
-    elif args.command == "refresh-tokens":
-        refresh_tokens()
-    elif args.command == "token-status":
-        asyncio.run(check_token_status())
     else:
         parser.print_help()
 

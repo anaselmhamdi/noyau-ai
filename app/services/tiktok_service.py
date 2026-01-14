@@ -18,6 +18,7 @@ import httpx
 
 from app.config import get_config
 from app.core.logging import get_logger
+from app.services.social_utils import build_social_caption
 
 logger = get_logger(__name__)
 
@@ -335,41 +336,16 @@ async def _post_video_with_retry(
 
 
 def build_video_caption(item: dict[str, Any], rank: int, issue_date: date | None = None) -> str:
-    """
-    Build a TikTok caption from an issue item.
-
-    Args:
-        item: Issue item with headline, teaser, etc.
-        rank: Story rank (1-10)
-        issue_date: Date of the issue
-
-    Returns:
-        Formatted caption for TikTok
-    """
+    """Build a TikTok caption from an issue item."""
     config = get_config()
-
-    headline = item.get("headline", "")
-    teaser = item.get("teaser", "")
-
-    # Format date
-    if issue_date:
-        date_str = issue_date.strftime("%b %d, %Y")
-    else:
-        date_str = date.today().strftime("%b %d, %Y")
-
-    # Build caption with date, headline and teaser
-    caption = f"{date_str} | {headline}\n\n{teaser}"
-
-    # Add hashtags if enabled
-    if config.tiktok.include_hashtags:
-        hashtags = config.tiktok.default_hashtags
-        hashtag_str = " ".join(f"#{tag}" for tag in hashtags)
-        caption = f"{caption}\n\n{hashtag_str}"
-
-    # Add CTA
-    caption = f"{caption}\n\nMore signal, less noise: noyau.news"
-
-    return caption
+    hashtags = config.tiktok.default_hashtags if config.tiktok.include_hashtags else None
+    return build_social_caption(
+        item,
+        rank,
+        include_date=True,
+        issue_date=issue_date,
+        hashtags=hashtags,
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ repos:
         types_or: [python, pyi]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
+    rev: v1.15.0
     hooks:
       - id: mypy
         args: [app/]
@@ -17,6 +17,8 @@ repos:
           pydantic>=2.0,
           types-PyYAML,
           types-python-dateutil,
+          types-Pillow,
+          youtube-transcript-api,
         ]
         files: ^app/
         pass_filenames: false

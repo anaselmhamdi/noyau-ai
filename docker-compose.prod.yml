@@ -23,8 +23,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    depends_on:
-      - nitter
 
   ui:
     image: ghcr.io/anaselmhamdi/noyau-ai-ui:latest
@@ -57,49 +55,6 @@ services:
       - api
       - ui
 
-  # Self-hosted Nitter for X/Twitter RSS feeds
-  nitter-redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - nitter_redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  nitter:
-    image: zedeus/nitter:latest
-    restart: unless-stopped
-    depends_on:
-      nitter-redis:
-        condition: service_healthy
-    environment:
-      NITTER_SESSIONS_FILE: /data/sessions.jsonl
-    volumes:
-      - ./nitter/nitter.conf:/src/nitter.conf:ro
-      - ./nitter/sessions.jsonl:/data/sessions.jsonl
-    ports:
-      - "127.0.0.1:8080:8080"
-
-  # Session refresh (browser + xvfb) - slower but less detectable
-  # Run with: docker compose run --rm nitter-auth
-  nitter-auth:
-    image: python:3.12-slim
-    profiles: ["tools"]
-    working_dir: /scripts
-    shm_size: 2gb
-    env_file: .env
-    volumes:
-      - ./nitter/scripts:/scripts:ro
-      - ./nitter/sessions.jsonl:/data/sessions.jsonl
-    command: >
-      sh -c "apt-get update &&
-             apt-get install -y --no-install-recommends xvfb xauth chromium chromium-driver &&
-             pip install -q --root-user-action=ignore nodriver pyotp &&
-             xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24' python create_session_browser.py \"$$TWITTER_USERNAME\" \"$$TWITTER_PASSWORD\" \"$$TWITTER_TOTP_SECRET\" --append /data/sessions.jsonl"
-
   # Auto-update containers when new images are pushed to GHCR
   watchtower:
     image: containrrr/watchtower:latest
@@ -117,4 +72,3 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  nitter_redis:

@@ -8,7 +8,7 @@ packages:
   - gnupg
   - git
   - unzip
-  # For Nitter token refresh (browser automation)
+  # For browser automation (TikTok uploads)
   - xvfb
   - chromium-browser
   - python3-pip
@@ -105,13 +105,6 @@ write_files:
       DISCORD_ERROR_WEBHOOK_URL=${discord_error_webhook_url}
 
       # =============================================================================
-      # Twitter/Nitter
-      # =============================================================================
-      TWITTER_USERNAME=${twitter_username}
-      TWITTER_PASSWORD=${twitter_password}
-      TWITTER_TOTP_SECRET=${twitter_totp_secret}
-
-      # =============================================================================
       # Twitter API v2 (posting)
       # =============================================================================
       TWITTER_API_KEY=${twitter_api_key}
@@ -177,8 +170,6 @@ write_files:
             interval: 30s
             timeout: 10s
             retries: 3
-          depends_on:
-            - nitter
 
         caddy:
           image: caddy:2-alpine
@@ -194,36 +185,9 @@ write_files:
           depends_on:
             - api
 
-        # Nitter for X/Twitter RSS feeds
-        nitter-redis:
-          image: redis:7-alpine
-          restart: unless-stopped
-          volumes:
-            - nitter_redis:/data
-          healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-
-        nitter:
-          image: zedeus/nitter:latest
-          restart: unless-stopped
-          depends_on:
-            nitter-redis:
-              condition: service_healthy
-          environment:
-            NITTER_SESSIONS_FILE: /data/sessions.jsonl
-          volumes:
-            - ./nitter/nitter.conf:/src/nitter.conf:ro
-            - ./nitter/sessions.jsonl:/data/sessions.jsonl:ro
-          ports:
-            - "127.0.0.1:8080:8080"
-
       volumes:
         caddy_data:
         caddy_config:
-        nitter_redis:
 
   # NOTE: Hourly and daily job scheduling is now handled in-app via APScheduler.
   # The systemd timers below are kept commented out as a fallback option.
@@ -291,138 +255,6 @@ write_files:
   #     [Install]
   #     WantedBy=multi-user.target
 
-  # Nitter configuration
-  - path: /opt/noyau/nitter/nitter.conf
-    content: |
-      [Server]
-      hostname = "localhost"
-      title = "Noyau Nitter"
-      address = "0.0.0.0"
-      port = 8080
-      https = false
-      httpMaxConnections = 100
-      staticDir = "./public"
-
-      [Cache]
-      redisHost = "nitter-redis"
-      redisPort = 6379
-      redisConnections = 20
-      redisMaxConnections = 30
-      listMinutes = 240
-      rssMinutes = 10
-
-      [Config]
-      hmacKey = "noyau-nitter-hmac-key"
-      base64Media = false
-      enableRSS = true
-      enableDebug = false
-      proxy = ""
-      proxyAuth = ""
-
-      [Preferences]
-      theme = "Nitter"
-      replaceTwitter = ""
-      replaceYouTube = ""
-      replaceReddit = ""
-      proxyVideos = false
-      hlsPlayback = false
-      infiniteScroll = false
-
-  # Empty sessions file (will be populated by refresh script)
-  - path: /opt/noyau/nitter/sessions.jsonl
-    permissions: '0600'
-    content: ""
-
-  # Nitter token refresh script
-  - path: /opt/noyau/scripts/refresh_nitter_tokens.sh
-    permissions: '0755'
-    content: |
-      #!/bin/bash
-      # Refresh Nitter/Twitter session tokens via xvfb browser automation
-      set -e
-
-      SCRIPT_DIR="$(cd "$(dirname "$${BASH_SOURCE[0]}")" && pwd)"
-      PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-      NITTER_DIR="$PROJECT_DIR/nitter"
-      VENV_DIR="$PROJECT_DIR/nitter-venv"
-      LOG_FILE="$PROJECT_DIR/logs/nitter_refresh.log"
-
-      # Load environment variables
-      source "$PROJECT_DIR/.env"
-
-      # Validate credentials
-      if [ -z "$TWITTER_USERNAME" ] || [ -z "$TWITTER_PASSWORD" ]; then
-          echo "$$(date): ERROR - TWITTER_USERNAME or TWITTER_PASSWORD not set" >> "$LOG_FILE"
-          exit 1
-      fi
-
-      # Create logs directory
-      mkdir -p "$(dirname "$LOG_FILE")"
-
-      echo "$$(date): Starting token refresh for @$TWITTER_USERNAME" >> "$LOG_FILE"
-
-      # Ensure venv exists with required packages
-      if [ ! -d "$VENV_DIR" ]; then
-          python3 -m venv "$VENV_DIR"
-          "$VENV_DIR/bin/pip" install nodriver pyotp curl_cffi >> "$LOG_FILE" 2>&1
-      fi
-
-      # Download browser script if not present
-      if [ ! -f "$NITTER_DIR/create_session_browser.py" ]; then
-          curl -sL -o "$NITTER_DIR/create_session_browser.py" \
-              https://raw.githubusercontent.com/zedeus/nitter/master/tools/create_session_browser.py
-      fi
-
-      # Build command
-      CMD="$VENV_DIR/bin/python $NITTER_DIR/create_session_browser.py $TWITTER_USERNAME $TWITTER_PASSWORD"
-      if [ -n "$TWITTER_TOTP_SECRET" ]; then
-          CMD="$CMD $TWITTER_TOTP_SECRET"
-      fi
-      CMD="$CMD --append $NITTER_DIR/sessions.jsonl"
-
-      # Run with xvfb
-      xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" $CMD >> "$LOG_FILE" 2>&1
-      RESULT=$?
-
-      if [ $RESULT -eq 0 ]; then
-          echo "$$(date): Token refresh successful" >> "$LOG_FILE"
-          # Restart Nitter to pick up new tokens
-          cd "$PROJECT_DIR" && docker compose restart nitter >> "$LOG_FILE" 2>&1 || true
-      else
-          echo "$$(date): Token refresh FAILED with exit code $RESULT" >> "$LOG_FILE"
-          exit $RESULT
-      fi
-
-  # Nitter token refresh timer (every 10 days)
-  - path: /etc/systemd/system/nitter-refresh.timer
-    content: |
-      [Unit]
-      Description=Nitter token refresh timer
-
-      [Timer]
-      OnCalendar=*-*-01,11,21 03:00:00
-      Persistent=true
-      RandomizedDelaySec=3600
-
-      [Install]
-      WantedBy=timers.target
-
-  # Nitter token refresh service
-  - path: /etc/systemd/system/nitter-refresh.service
-    content: |
-      [Unit]
-      Description=Nitter token refresh job
-      After=network.target
-
-      [Service]
-      Type=oneshot
-      ExecStart=/opt/noyau/scripts/refresh_nitter_tokens.sh
-      TimeoutStartSec=300
-      Environment="DISPLAY=:99"
-
-      [Install]
-      WantedBy=multi-user.target
-
   # Backup script (optional - Neon has built-in PITR)
   - path: /opt/noyau/scripts/backup.sh
     permissions: '0755'
@@ -483,14 +315,5 @@ runcmd:
   # - systemctl enable noyau-hourly.timer
   # - systemctl enable noyau-daily.timer
   - systemctl enable noyau-backup.timer
-  # Enable Nitter token refresh timer (runs every 10 days)
-  - systemctl enable nitter-refresh.timer
-  - systemctl start nitter-refresh.timer
-  # Run initial token generation if credentials are set
-  - |
-    if [ -n "${twitter_username}" ] && [ -n "${twitter_password}" ]; then
-      echo "Running initial Nitter token generation..."
-      /opt/noyau/scripts/refresh_nitter_tokens.sh || echo "Initial token gen failed - run manually later"
-    fi
   # Authenticate with GitHub Container Registry
   - echo "${github_token}" | docker login ghcr.io -u ${github_username} --password-stdin

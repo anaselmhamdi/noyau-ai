@@ -7,7 +7,6 @@ from app.core.logging import get_logger
 from app.ingest.base import BaseFetcher, RawContent
 from app.ingest.bluesky import create_bluesky_fetcher
 from app.ingest.devto import create_devto_fetcher
-from app.ingest.nitter import create_nitter_fetcher
 from app.ingest.reddit import create_reddit_fetcher
 from app.ingest.rss import create_rss_fetchers
 from app.ingest.youtube import create_youtube_fetcher
@@ -22,12 +21,6 @@ def create_all_fetchers(config: AppConfig) -> list[BaseFetcher]:
 
     # RSS and GitHub releases
     fetchers.extend(create_rss_fetchers(config))
-
-    # Nitter for X/Twitter (check enabled flag)
-    if config.nitter.enabled:
-        nitter = create_nitter_fetcher(config)
-        if nitter:
-            fetchers.append(nitter)
 
     # Reddit
     reddit = create_reddit_fetcher(config)

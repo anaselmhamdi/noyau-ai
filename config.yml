@@ -261,19 +261,6 @@ seeds:
     - handle: "aaronparecki.com"
       name: "Aaron Parecki"
 
-# Nitter configuration for X/Twitter RSS feeds
-# Uses self-hosted Nitter instance (requires Twitter session tokens)
-# See nitter/README.md for setup instructions
-# DISABLED: Using Bluesky instead (Twitter account locked due to Nitter usage)
-nitter:
-  enabled: false
-  instances:
-    # Self-hosted instance (Docker: nitter:8080, local dev: localhost:8080)
-    - "nitter:8080"
-    - "localhost:8080"
-  timeout_seconds: 10
-  max_retries: 3
-
 # Discord community integration (webhook posting to channel)
 discord:
   enabled: true  # Set to true once webhook is configured

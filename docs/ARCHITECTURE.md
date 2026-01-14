@@ -112,10 +112,10 @@ The ingest layer fetches content from multiple sources:
 |--------|--------|--------|
 | RSS/Atom | `rss.py` | Standard feed parsing |
 | GitHub | `rss.py` | releases.atom feeds |
-| X/Twitter | `nitter.py` | Nitter RSS (rotating instances) |
 | Reddit | `reddit.py` | JSON API (no auth) |
 | dev.to | `devto.py` | Public API |
 | YouTube | `youtube.py` | RSS + youtube-transcript-api |
+| Bluesky | `bluesky.py` | AT Protocol RSS |
 
 #### Normalizer (`normalizer.py`)
 

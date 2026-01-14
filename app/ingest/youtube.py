@@ -177,7 +177,7 @@ class YouTubeFetcher(BaseFetcher):
             loop = asyncio.get_event_loop()
             transcript_list = await loop.run_in_executor(
                 None,
-                lambda: YouTubeTranscriptApi.get_transcript(video_id),
+                lambda: YouTubeTranscriptApi.get_transcript(video_id),  # type: ignore[attr-defined]
             )
 
             # Combine transcript segments

@@ -58,13 +58,13 @@ async def send_slack_digests(issue_date: date, items: list[dict]) -> SlackDispat
 
     async with AsyncSessionLocal() as db:
         # Get all active Slack connections
-        result = await db.execute(
+        query_result = await db.execute(
             select(MessagingConnection).where(
                 MessagingConnection.platform == "slack",
                 MessagingConnection.is_active.is_(True),
             )
         )
-        connections = result.scalars().all()
+        connections = query_result.scalars().all()
 
         if not connections:
             logger.debug("no_slack_subscribers")

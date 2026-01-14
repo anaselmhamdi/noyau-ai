@@ -93,13 +93,13 @@ class NoyauBot(discord.Client):
         async with AsyncSessionLocal() as db:
             try:
                 # Check if user already has a connection
-                result = await db.execute(
+                conn_result = await db.execute(
                     select(MessagingConnection).where(
                         MessagingConnection.platform == "discord",
                         MessagingConnection.platform_user_id == discord_user_id,
                     )
                 )
-                existing_connection = result.scalar_one_or_none()
+                existing_connection = conn_result.scalar_one_or_none()
 
                 if existing_connection and existing_connection.is_active:
                     await interaction.followup.send(
@@ -109,8 +109,8 @@ class NoyauBot(discord.Client):
                     return
 
                 # Find or create user by email
-                result = await db.execute(select(User).where(User.email == email))
-                user = result.scalar_one_or_none()
+                user_result = await db.execute(select(User).where(User.email == email))
+                user = user_result.scalar_one_or_none()
 
                 if not user:
                     # Create new user

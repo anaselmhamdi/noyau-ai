@@ -2,9 +2,12 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    import loguru
 
 from app.config import get_settings
 
@@ -37,10 +40,10 @@ class HealthCheckFilter(logging.Filter):
         return "/health" not in message
 
 
-def _health_log_filter(record: dict[str, Any]) -> bool:
+def _health_log_filter(record: "loguru.Record") -> bool:
     """Filter health check logs - only show at DEBUG level."""
     message = record.get("message", "")
-    if "/health" in message:
+    if "/health" in str(message):
         return bool(record["level"].no <= 10)  # DEBUG level
     return True
 

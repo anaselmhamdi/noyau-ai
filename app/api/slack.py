@@ -111,8 +111,8 @@ async def slack_callback(
             email = email.lower().strip()
 
             # Find or create user
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
+            user_result = await db.execute(select(User).where(User.email == email))
+            user = user_result.scalar_one_or_none()
 
             if not user:
                 user = User(
@@ -124,13 +124,13 @@ async def slack_callback(
                 logger.bind(email=email, source="slack").info("user_created")
 
             # Check for existing connection
-            result = await db.execute(
+            conn_result = await db.execute(
                 select(MessagingConnection).where(
                     MessagingConnection.platform == "slack",
                     MessagingConnection.platform_user_id == oauth_result.authed_user_id,
                 )
             )
-            existing = result.scalar_one_or_none()
+            existing = conn_result.scalar_one_or_none()
 
             if existing:
                 # Update existing connection
