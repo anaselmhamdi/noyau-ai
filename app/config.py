@@ -96,6 +96,7 @@ class Settings(BaseSettings):
     tiktok_access_token: str = Field(default="")
     tiktok_refresh_token: str = Field(default="")
     tiktok_redirect_uri: str = Field(default="")
+    tiktok_cookies_path: str = Field(default="")
 
     # Instagram Graph API credentials
     instagram_app_id: str = Field(default="")
@@ -274,6 +275,10 @@ class TikTokConfig:
         self.client_secret: str = settings.tiktok_client_secret
         self.access_token: str = settings.tiktok_access_token
         self.refresh_token: str = settings.tiktok_refresh_token
+
+        # Browser-based uploader (Selenium + cookies)
+        self.cookies_path: str = settings.tiktok_cookies_path or data.get("cookies_path", "")
+        self.browser_headless: bool = data.get("browser_headless", True)
 
 
 class InstagramConfig:

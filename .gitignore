@@ -45,3 +45,4 @@ public/issues/
 # Nitter session tokens (sensitive)
 nitter/sessions.jsonl
 .coverage
+tiktok_cookies.txt

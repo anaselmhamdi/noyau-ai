@@ -4,12 +4,17 @@ TikTok service for posting daily digest videos via TikTok Content Posting API.
 Uses OAuth 2.0 for authentication. Requires one-time manual auth flow to get
 refresh token, then auto-refreshes as needed.
 
+Includes browser-based fallback using tiktok-uploader (Selenium + cookies)
+when API is unavailable or not approved.
+
 API Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
 """
 
 import asyncio
+import tempfile
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -370,6 +375,142 @@ def build_video_caption(item: dict[str, Any], rank: int, issue_date: date | None
     return caption
 
 
+# ---------------------------------------------------------------------------
+# Browser-based upload (Selenium fallback)
+# ---------------------------------------------------------------------------
+
+
+async def _download_video_to_temp(video_url: str) -> str | None:
+    """
+    Download video from URL to a temporary file for browser upload.
+
+    Args:
+        video_url: Public URL of the video (S3, R2, etc.)
+
+    Returns:
+        Path to temporary file if successful, None otherwise
+    """
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            resp = await client.get(video_url)
+            if resp.status_code == 200:
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+                    f.write(resp.content)
+                    return f.name
+            else:
+                logger.bind(status=resp.status_code).error("video_download_failed")
+        except Exception as e:
+            logger.bind(error=str(e)).error("video_download_error")
+    return None
+
+
+def _upload_via_browser(
+    video_path: str,
+    caption: str,
+    cookies_path: str,
+    headless: bool = True,
+) -> TikTokPostResult:
+    """
+    Upload video using browser automation (tiktok-uploader).
+
+    This is a synchronous function due to Selenium limitations.
+    Run in executor when calling from async context.
+
+    Args:
+        video_path: Local path to video file
+        caption: Video caption/description
+        cookies_path: Path to cookies.txt file (Netscape format)
+        headless: Run browser in headless mode
+
+    Returns:
+        TikTokPostResult with success status
+    """
+    try:
+        from tiktok_uploader.upload import upload_video
+
+        # tiktok-uploader returns list of failed videos (empty = all succeeded)
+        failed = upload_video(
+            video_path,
+            description=caption,
+            cookies=cookies_path,
+            headless=headless,
+        )
+
+        if not failed:
+            logger.info("tiktok_browser_upload_success")
+            return TikTokPostResult(
+                publish_id="browser_upload",
+                success=True,
+            )
+        else:
+            logger.bind(failed=failed).warning("tiktok_browser_upload_failed")
+            return TikTokPostResult(
+                publish_id=None,
+                success=False,
+                error="Browser upload failed",
+            )
+
+    except ImportError:
+        return TikTokPostResult(
+            publish_id=None,
+            success=False,
+            error="tiktok-uploader not installed. Run: pip install tiktok-uploader",
+        )
+    except Exception as e:
+        logger.bind(error=str(e)).error("tiktok_browser_upload_error")
+        return TikTokPostResult(
+            publish_id=None,
+            success=False,
+            error=f"Browser upload error: {e}",
+        )
+
+
+async def _try_browser_upload(
+    video_url: str,
+    caption: str,
+    cookies_path: str,
+    headless: bool = True,
+) -> TikTokPostResult:
+    """
+    Attempt browser-based upload for a single video.
+
+    Downloads video to temp file, uploads via Selenium, then cleans up.
+
+    Args:
+        video_url: Public URL of the video
+        caption: Video caption/description
+        cookies_path: Path to cookies.txt file
+        headless: Run browser in headless mode
+
+    Returns:
+        TikTokPostResult with success status
+    """
+    # Download video to temp file
+    temp_path = await _download_video_to_temp(video_url)
+    if not temp_path:
+        return TikTokPostResult(
+            publish_id=None,
+            success=False,
+            error="Failed to download video for browser upload",
+        )
+
+    try:
+        # Run sync Selenium upload in executor
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            _upload_via_browser,
+            temp_path,
+            caption,
+            cookies_path,
+            headless,
+        )
+        return result
+    finally:
+        # Clean up temp file
+        Path(temp_path).unlink(missing_ok=True)
+
+
 async def post_tiktok_video(
     video_url: str,
     item: dict[str, Any],
@@ -430,18 +571,26 @@ async def send_tiktok_videos(
             message="TikTok posting is disabled",
         )
 
-    # Check for credentials
-    if not config.tiktok.client_key:
-        logger.warning("tiktok_credentials_not_set")
+    # Check for cookies (browser upload only - no API)
+    if not config.tiktok.cookies_path:
+        logger.warning("tiktok_cookies_not_configured")
         return TikTokUploadResult(
             results=[],
             success=False,
-            message="TikTok credentials not configured",
+            message="TikTok cookies path not configured (TIKTOK_COOKIES_PATH)",
+        )
+
+    if not Path(config.tiktok.cookies_path).exists():
+        logger.warning("tiktok_cookies_file_not_found")
+        return TikTokUploadResult(
+            results=[],
+            success=False,
+            message=f"TikTok cookies file not found: {config.tiktok.cookies_path}",
         )
 
     results: list[TikTokPostResult] = []
 
-    # Post top video (as per user decision: top 1 only)
+    # Post top videos
     videos_to_post = videos[: config.tiktok.videos_per_day]
 
     for i, video in enumerate(videos_to_post):
@@ -460,20 +609,22 @@ async def send_tiktok_videos(
 
         # Match video to corresponding item for caption
         item = items[i] if i < len(items) else {}
+        caption = build_video_caption(item, i + 1, issue_date)
 
-        result = await post_tiktok_video(video_url, item, rank=i + 1, issue_date=issue_date)
-        results.append(result)
+        # Upload via browser (Selenium + cookies)
+        result = await _try_browser_upload(
+            video_url=video_url,
+            caption=caption,
+            cookies_path=config.tiktok.cookies_path,
+            headless=config.tiktok.browser_headless,
+        )
 
         if result.success:
-            logger.bind(
-                rank=i + 1,
-                publish_id=result.publish_id,
-            ).info("tiktok_video_posted")
+            logger.bind(rank=i + 1).info("tiktok_video_posted")
         else:
-            logger.bind(
-                rank=i + 1,
-                error=result.error,
-            ).warning("tiktok_video_post_failed")
+            logger.bind(rank=i + 1, error=result.error).warning("tiktok_upload_failed")
+
+        results.append(result)
 
     # Count successes
     successful = sum(1 for r in results if r.success)
