@@ -335,7 +335,7 @@ tiktok:
   max_retries: 3
   # Browser-based uploader (Selenium + cookies - no API)
   cookies_path: null  # Path to cookies.txt or set TIKTOK_COOKIES_PATH env var
-  browser_headless: false  # Set to true for headless mode (may have issues with popups)
+  browser_headless: true  # Headless Chrome mode
 
 # Instagram Reels via Graph API
 # Uses Facebook's Instagram Graph API to post Reels

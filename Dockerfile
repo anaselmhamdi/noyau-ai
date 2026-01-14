@@ -16,7 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     fonts-dejavu-core \
     fonts-liberation \
+    # Chrome for TikTok browser upload
+    chromium \
+    chromium-driver \
     && rm -rf /var/lib/apt/lists/*
+
+# Chrome headless flags for container
+ENV CHROME_BIN=/usr/bin/chromium \
+    CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 # Create non-root user first
 RUN adduser --disabled-password --gecos "" appuser && \
