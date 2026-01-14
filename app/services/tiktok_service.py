@@ -1,11 +1,8 @@
 """
-TikTok service for posting daily digest videos via TikTok Content Posting API.
+TikTok service for posting daily digest videos.
 
-Uses OAuth 2.0 for authentication. Requires one-time manual auth flow to get
-refresh token, then auto-refreshes as needed.
-
-Includes browser-based fallback using tiktok-uploader (Selenium + cookies)
-when API is unavailable or not approved.
+Uses direct Selenium automation with system chromium for browser-based uploads.
+Requires TikTok cookies exported in Netscape format.
 
 API Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
 """
@@ -425,26 +422,40 @@ def _get_chrome_driver(headless: bool = True):
     )
 
 
-def _patch_tiktok_uploader_browser(headless: bool = True):
-    """Monkey-patch tiktok-uploader to use system chromium.
-
-    Must be called BEFORE importing upload_video to work correctly.
+def _load_cookies(driver, cookies_path: str) -> None:
     """
-    import sys
+    Load cookies from Netscape format file into Selenium driver.
 
-    # Patch the browsers module
-    import tiktok_uploader.browsers as tb
+    Netscape format: domain flag path secure expiration name value
+    """
+    with open(cookies_path) as f:
+        for line in f:
+            line = line.strip()
+            # Skip comments and empty lines
+            if not line or line.startswith("#"):
+                continue
 
-    tb.get_browser = lambda *args, **kwargs: _get_chrome_driver(headless)
+            parts = line.split("\t")
+            if len(parts) >= 7:
+                domain, _, path, secure, expiry, name, value = parts[:7]
 
-    # Also patch it in sys.modules to catch any 'from' imports
-    if "tiktok_uploader.upload" in sys.modules:
-        # Module already loaded, patch its reference directly
-        upload_module = sys.modules["tiktok_uploader.upload"]
-        if hasattr(upload_module, "get_browser"):
-            setattr(
-                upload_module, "get_browser", lambda *args, **kwargs: _get_chrome_driver(headless)
-            )
+                cookie = {
+                    "name": name,
+                    "value": value,
+                    "domain": domain,
+                    "path": path,
+                    "secure": secure.upper() == "TRUE",
+                }
+
+                # Only add expiry if it's not a session cookie (0 = session)
+                if expiry and expiry != "0":
+                    cookie["expiry"] = int(expiry)
+
+                try:
+                    driver.add_cookie(cookie)
+                except Exception as e:
+                    # Some cookies may fail (wrong domain, etc.) - that's OK
+                    logger.bind(name=name, error=str(e)).debug("cookie_add_failed")
 
 
 def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
@@ -511,12 +522,10 @@ def _upload_via_browser(
     headless: bool = True,
 ) -> TikTokPostResult:
     """
-    Upload video using browser automation (tiktok-uploader).
+    Upload video using direct Selenium with system chromium.
 
-    This is a synchronous function due to Selenium limitations.
-    Run in executor when calling from async context.
-
-    Includes handling for TikTok's content verification modal.
+    This bypasses tiktok-uploader library to avoid webdriver-manager issues
+    in Docker environments.
 
     Args:
         video_path: Local path to video file
@@ -529,106 +538,249 @@ def _upload_via_browser(
     """
     import time
 
+    from selenium.common.exceptions import TimeoutException
+    from selenium.webdriver.common.by import By
+
     driver = None
-    captured_driver = None
     try:
-        import sys
+        # 1. Create driver with system chromium
+        driver = _get_chrome_driver(headless)
+        logger.info("tiktok_driver_created")
 
-        # Patch tiktok-uploader BEFORE importing upload module
-        import tiktok_uploader.browsers as tb
+        # 2. Navigate to TikTok and load cookies
+        driver.get("https://www.tiktok.com")
+        time.sleep(2)  # Wait for page to load before adding cookies
+        _load_cookies(driver, cookies_path)
+        logger.info("tiktok_cookies_loaded")
 
-        tb.get_browser = lambda *args, **kwargs: _get_chrome_driver(headless)
+        # 3. Refresh to apply cookies and navigate to upload page
+        driver.refresh()
+        time.sleep(2)
+        driver.get("https://www.tiktok.com/creator-center/upload")
+        logger.info("tiktok_navigated_to_upload")
 
-        # Force reload upload module to pick up patched get_browser
-        if "tiktok_uploader.upload" in sys.modules:
-            del sys.modules["tiktok_uploader.upload"]
+        # 4. Wait for and find file input (may be hidden)
+        # TikTok's upload page has an iframe or hidden input
+        time.sleep(5)  # Wait for page to fully load
 
-        # Also patch the imported reference in the upload module
-        import tiktok_uploader.upload as upload_module
-        from tiktok_uploader.upload import upload_video
+        # Try multiple selectors for file input
+        file_input = None
+        selectors = [
+            "input[type='file']",
+            "input[accept*='video']",
+            "iframe",  # TikTok sometimes uses an iframe
+        ]
 
-        setattr(upload_module, "get_browser", lambda *args, **kwargs: _get_chrome_driver(headless))
+        for selector in selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements:
+                    if selector == "iframe":
+                        # Switch to iframe and find input
+                        driver.switch_to.frame(elements[0])
+                        file_input = driver.find_element(By.CSS_SELECTOR, "input[type='file']")
+                    else:
+                        file_input = elements[0]
+                    logger.bind(selector=selector).info("tiktok_file_input_found")
+                    break
+            except Exception:
+                continue
 
-        # Wrap to capture driver
-        original_get_browser = tb.get_browser
-
-        def capturing_get_browser(*args, **kwargs):
-            nonlocal captured_driver
-            captured_driver = original_get_browser(*args, **kwargs)
-            return captured_driver
-
-        tb.get_browser = capturing_get_browser
-        setattr(upload_module, "get_browser", capturing_get_browser)
-
-        # Start upload in a way that we can handle the modal
-        # tiktok-uploader returns list of failed videos (empty = all succeeded)
-        failed = upload_video(
-            video_path,
-            description=caption,
-            cookies=cookies_path,
-            headless=headless,
-        )
-
-        # If upload failed, check if it's due to content verification modal
-        if failed and captured_driver:
-            driver = captured_driver
-            logger.info("tiktok_upload_failed_checking_modal")
-
-            # Try to handle the content verification modal
-            if _handle_content_verification_modal(driver, timeout=3):
-                # Modal was handled, wait a bit and check if upload succeeds
-                time.sleep(2)
-                # The upload should continue automatically after modal dismiss
-                logger.info("tiktok_modal_handled_waiting_for_completion")
-                time.sleep(5)  # Wait for upload to complete
-                failed = []  # Assume success after modal handling
-
-        if not failed:
-            logger.info("tiktok_browser_upload_success")
-            return TikTokPostResult(
-                publish_id="browser_upload",
-                success=True,
-            )
-        else:
-            # Capture debug info on failure
-            if captured_driver:
-                try:
-                    captured_driver.save_screenshot("/tmp/tiktok_error.png")
-                    logger.info("tiktok_failure_screenshot_saved")
-                except Exception:
-                    pass
-                try:
-                    with open("/tmp/tiktok_error.html", "w") as f:
-                        f.write(captured_driver.page_source)
-                    logger.info("tiktok_failure_html_saved")
-                except Exception:
-                    pass
-            logger.bind(failed=failed).warning("tiktok_browser_upload_failed")
+        if not file_input:
+            # Save debug info
+            driver.save_screenshot("/tmp/tiktok_no_input.png")
+            with open("/tmp/tiktok_no_input.html", "w") as f:
+                f.write(driver.page_source)
+            logger.error("tiktok_file_input_not_found")
             return TikTokPostResult(
                 publish_id=None,
                 success=False,
-                error="Browser upload failed",
+                error="Could not find file input on upload page",
             )
 
-    except ImportError:
+        # 5. Upload the video file
+        file_input.send_keys(video_path)
+        logger.info("tiktok_video_file_sent")
+
+        # 6. Wait for upload to process (look for progress indicators to disappear)
+        time.sleep(10)  # Initial processing time
+
+        # Wait for upload progress to complete (various possible indicators)
+        try:
+            # Wait up to 2 minutes for upload processing
+            for _ in range(24):  # 24 * 5s = 2 minutes
+                time.sleep(5)
+                # Check if still uploading
+                uploading_indicators = driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "[class*='progress'], [class*='uploading'], [class*='loading']",
+                )
+                visible_indicators = [e for e in uploading_indicators if e.is_displayed()]
+                if not visible_indicators:
+                    break
+                logger.debug("tiktok_still_uploading")
+        except Exception:
+            pass
+
+        logger.info("tiktok_upload_processing_complete")
+
+        # 7. Set caption/description
+        # Try multiple selectors for the caption editor
+        caption_selectors = [
+            "[contenteditable='true']",
+            ".public-DraftEditor-content",
+            "[data-e2e='caption-editor']",
+            "textarea",
+            "[class*='caption']",
+        ]
+
+        caption_set = False
+        for selector in caption_selectors:
+            try:
+                caption_elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for elem in caption_elements:
+                    if elem.is_displayed():
+                        elem.click()
+                        time.sleep(0.5)
+                        elem.clear()
+                        elem.send_keys(caption)
+                        caption_set = True
+                        logger.bind(selector=selector).info("tiktok_caption_set")
+                        break
+                if caption_set:
+                    break
+            except Exception:
+                continue
+
+        if not caption_set:
+            logger.warning("tiktok_caption_not_set")
+            # Continue anyway - video can be posted without caption
+
+        time.sleep(2)
+
+        # 8. Handle any verification modals
+        _handle_content_verification_modal(driver, timeout=3)
+
+        # 9. Dismiss any tutorial/joyride overlays
+        try:
+            # Click through any Joyride tutorial overlays
+            joyride_overlays = driver.find_elements(
+                By.CSS_SELECTOR, ".react-joyride__overlay, [data-test-id='overlay']"
+            )
+            for overlay in joyride_overlays:
+                if overlay.is_displayed():
+                    overlay.click()
+                    logger.info("tiktok_joyride_overlay_clicked")
+                    time.sleep(1)
+
+            # Also try to find and click skip/close buttons
+            skip_buttons = driver.find_elements(
+                By.CSS_SELECTOR,
+                "button[aria-label*='skip'], button[aria-label*='close'], "
+                "button[class*='skip'], button[class*='close'], "
+                "[data-testid='close'], .react-joyride__tooltip button",
+            )
+            for btn in skip_buttons:
+                if btn.is_displayed():
+                    btn.click()
+                    logger.info("tiktok_tutorial_button_clicked")
+                    time.sleep(1)
+        except Exception as e:
+            logger.bind(error=str(e)).debug("tiktok_joyride_dismiss_failed")
+
+        # 10. Scroll to bottom to make post button visible
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+
+        # 11. Click post button - look for button with "Publier" or "Post" text
+        # The data-e2e attribute is the most reliable selector
+        post_button = None
+
+        # First try the exact data-e2e selector
+        try:
+            post_buttons = driver.find_elements(
+                By.CSS_SELECTOR, "button[data-e2e='post_video_button']"
+            )
+            logger.bind(count=len(post_buttons)).debug("tiktok_found_post_buttons_by_data_e2e")
+            for btn in post_buttons:
+                if btn.is_displayed():
+                    post_button = btn
+                    break
+        except Exception as e:
+            logger.bind(error=str(e)).debug("tiktok_data_e2e_selector_failed")
+
+        # If not found, try finding any button with Post/Publier text
+        if not post_button:
+            try:
+                all_buttons = driver.find_elements(By.TAG_NAME, "button")
+                logger.bind(count=len(all_buttons)).debug("tiktok_found_all_buttons")
+                for btn in all_buttons:
+                    try:
+                        text = btn.text.lower()
+                        if any(word in text for word in ["post", "publier", "publish", "submit"]):
+                            if btn.is_displayed() and btn.is_enabled():
+                                post_button = btn
+                                logger.bind(text=btn.text).info("tiktok_found_post_button_by_text")
+                                break
+                    except Exception:
+                        continue
+            except Exception as e:
+                logger.bind(error=str(e)).debug("tiktok_text_search_failed")
+
+        if post_button:
+            # Scroll to button and click
+            driver.execute_script("arguments[0].scrollIntoView(true);", post_button)
+            time.sleep(1)
+            try:
+                post_button.click()
+                logger.info("tiktok_post_button_clicked")
+            except Exception as click_error:
+                # If normal click fails (e.g., overlay blocking), use JavaScript click
+                logger.bind(error=str(click_error)).warning("tiktok_normal_click_failed")
+                driver.execute_script("arguments[0].click();", post_button)
+                logger.info("tiktok_post_button_clicked_via_js")
+        else:
+            driver.save_screenshot("/tmp/tiktok_no_post_button.png")
+            with open("/tmp/tiktok_no_post_button.html", "w") as f:
+                f.write(driver.page_source)
+            logger.error("tiktok_post_button_not_found")
+            return TikTokPostResult(
+                publish_id=None,
+                success=False,
+                error="Could not find or click post button",
+            )
+
+        # 12. Wait for post to complete and handle any final modals
+        time.sleep(5)
+        _handle_content_verification_modal(driver, timeout=5)
+
+        # Wait for success indication (page change or success message)
+        time.sleep(10)
+
+        logger.info("tiktok_browser_upload_success")
+        return TikTokPostResult(
+            publish_id="direct_upload",
+            success=True,
+        )
+
+    except TimeoutException as e:
+        if driver:
+            driver.save_screenshot("/tmp/tiktok_timeout.png")
+            with open("/tmp/tiktok_timeout.html", "w") as f:
+                f.write(driver.page_source)
+        logger.bind(error=str(e)).error("tiktok_upload_timeout")
         return TikTokPostResult(
             publish_id=None,
             success=False,
-            error="tiktok-uploader not installed. Run: pip install tiktok-uploader",
+            error=f"Upload timed out: {e}",
         )
     except Exception as e:
-        # Try to capture screenshot and HTML for debugging
-        active_driver = driver or captured_driver
-        if active_driver:
+        if driver:
             try:
-                active_driver.save_screenshot("/tmp/tiktok_error.png")
-                logger.info("tiktok_error_screenshot_saved")
-            except Exception:
-                pass
-            try:
+                driver.save_screenshot("/tmp/tiktok_error.png")
                 with open("/tmp/tiktok_error.html", "w") as f:
-                    f.write(active_driver.page_source)
-                logger.info("tiktok_error_html_saved")
+                    f.write(driver.page_source)
+                logger.info("tiktok_error_debug_saved")
             except Exception:
                 pass
         logger.bind(error=str(e)).error("tiktok_browser_upload_error")
