@@ -44,7 +44,7 @@ async def main():
     print(f"Message: {result.message}")
 
     for i, r in enumerate(result.results):
-        print(f"  Video {i+1}: success={r.success}, error={r.error}")
+        print(f"  Video {i + 1}: success={r.success}, error={r.error}")
 
 
 if __name__ == "__main__":
