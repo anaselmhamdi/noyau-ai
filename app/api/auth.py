@@ -1,11 +1,12 @@
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.config import get_config
 from app.core.logging import get_logger
+from app.core.rate_limit import limiter
 from app.core.security import (
     generate_ref_code,
     generate_session_id,
@@ -34,7 +35,9 @@ router = APIRouter()
 
 
 @router.post("/request-link", response_model=MagicLinkResponse)
+@limiter.limit("5/minute;20/hour")
 async def request_magic_link(
+    request: Request,
     body: MagicLinkRequest,
     db: DBSession,
 ) -> MagicLinkResponse:
@@ -42,6 +45,7 @@ async def request_magic_link(
     Request a magic link for passwordless authentication.
 
     Validates email before sending a one-time login link.
+    Rate limited to 5 requests per minute, 20 per hour per IP.
     """
     # Validate email before creating magic link
     validator = get_email_validator()

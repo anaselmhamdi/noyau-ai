@@ -166,10 +166,10 @@ class TestNullValidator:
 class TestEmailValidatorFactory:
     """Test the email validator factory function."""
 
-    def test_returns_null_validator_when_no_credentials(self):
-        """Should return NullValidator when Verifalia credentials missing."""
+    def test_returns_pre_validator_when_no_credentials(self):
+        """Should return PreValidator wrapping NullValidator when Verifalia credentials missing."""
         from app.services.email_validation import reset_email_validator
-        from app.services.email_validation.null import NullValidator
+        from app.services.email_validation.pre_validator import PreValidator
 
         # Reset singleton
         reset_email_validator()
@@ -182,13 +182,15 @@ class TestEmailValidatorFactory:
 
             validator = get_email_validator()
 
-            assert isinstance(validator, NullValidator)
+            # Without credentials, returns PreValidator wrapping NullValidator
+            assert isinstance(validator, PreValidator)
+            assert validator.provider_name == "pre_validator"
 
         # Reset again for other tests
         reset_email_validator()
 
-    def test_returns_cached_verifalia_when_credentials_present(self):
-        """Should return CachedValidator wrapping Verifalia when credentials set."""
+    def test_returns_cached_pre_validator_verifalia_when_credentials_present(self):
+        """Should return CachedValidator wrapping PreValidator wrapping Verifalia."""
         from app.services.email_validation import reset_email_validator
         from app.services.email_validation.cached import CachedValidator
 
@@ -206,8 +208,9 @@ class TestEmailValidatorFactory:
 
             validator = get_email_validator()
 
+            # Chain: CachedValidator -> PreValidator -> VerifaliaValidator
             assert isinstance(validator, CachedValidator)
-            assert "verifalia" in validator.provider_name
+            assert "pre_validator" in validator.provider_name
 
         # Reset for other tests
         reset_email_validator()

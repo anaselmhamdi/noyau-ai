@@ -6,12 +6,14 @@ from .base import BaseEmailValidator
 from .cached import CachedValidator
 from .models import ValidationResult, ValidationStatus
 from .null import NullValidator
+from .pre_validator import PreValidator
 from .verifalia import VerifaliaValidator
 
 __all__ = [
     "BaseEmailValidator",
     "CachedValidator",
     "NullValidator",
+    "PreValidator",
     "ValidationResult",
     "ValidationStatus",
     "VerifaliaValidator",
@@ -27,6 +29,10 @@ def get_email_validator() -> BaseEmailValidator:
 
     Uses singleton pattern for caching efficiency.
     Falls back to NullValidator if credentials not configured.
+
+    Validation chain: CachedValidator -> PreValidator -> VerifaliaValidator
+    PreValidator catches obviously invalid emails (reserved domains, disposable)
+    before calling Verifalia, saving API costs.
     """
     global _validator_instance
     if _validator_instance is not None:
@@ -35,18 +41,21 @@ def get_email_validator() -> BaseEmailValidator:
     settings = get_settings()
 
     if not settings.verifalia_username or not settings.verifalia_password:
-        # Validation disabled - use passthrough
-        _validator_instance = NullValidator()
+        # Validation disabled - use PreValidator with NullValidator fallback
+        # This still blocks reserved/disposable domains even without Verifalia
+        _validator_instance = PreValidator(NullValidator())
     else:
-        # Create Verifalia validator with cache
+        # Create Verifalia validator with PreValidator and cache
+        # Chain: Cache -> PreValidator -> Verifalia
         verifalia = VerifaliaValidator(
             username=settings.verifalia_username,
             password=settings.verifalia_password,
             quality=settings.verifalia_quality,
             timeout_seconds=settings.verifalia_timeout,
         )
+        pre_validated = PreValidator(verifalia)
         _validator_instance = CachedValidator(
-            verifalia,
+            pre_validated,
             cache_ttl_hours=settings.verifalia_cache_ttl_hours,
         )
 

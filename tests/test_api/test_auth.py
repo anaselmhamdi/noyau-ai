@@ -13,7 +13,7 @@ class TestRequestMagicLink:
         """Should return ok when requesting magic link."""
         response = await client.post(
             "/auth/request-link",
-            json={"email": "test@example.com", "redirect": "/daily/2026-01-10"},
+            json={"email": "test@gmail.com", "redirect": "/daily/2026-01-10"},
         )
 
         assert response.status_code == 200
@@ -34,10 +34,30 @@ class TestRequestMagicLink:
         """Should use default redirect when not specified."""
         response = await client.post(
             "/auth/request-link",
-            json={"email": "test@example.com"},
+            json={"email": "test@gmail.com"},
         )
 
         assert response.status_code == 200
+
+    async def test_request_link_rejects_reserved_domain(self, client: AsyncClient):
+        """Should reject emails with reserved domains like example.com."""
+        response = await client.post(
+            "/auth/request-link",
+            json={"email": "test@example.com", "redirect": "/"},
+        )
+
+        assert response.status_code == 400
+        assert "valid email" in response.json()["detail"].lower()
+
+    async def test_request_link_rejects_disposable_domain(self, client: AsyncClient):
+        """Should reject emails with disposable domains like mailinator.com."""
+        response = await client.post(
+            "/auth/request-link",
+            json={"email": "temp@mailinator.com", "redirect": "/"},
+        )
+
+        assert response.status_code == 400
+        assert "valid email" in response.json()["detail"].lower()
 
 
 class TestVerifyMagicLink:
@@ -48,7 +68,7 @@ class TestVerifyMagicLink:
     ):
         """Should create user and session for valid token."""
         magic_link, token = await magic_link_factory(
-            email="new@example.com",
+            email="new@testuser.dev",
             redirect_path="/daily/2026-01-10",
         )
 
@@ -66,9 +86,9 @@ class TestVerifyMagicLink:
         self, client: AsyncClient, magic_link_factory, user_factory, db_session
     ):
         """Should create session for existing user."""
-        _user = await user_factory(email="existing@example.com")
+        _user = await user_factory(email="existing@testuser.dev")
         magic_link, token = await magic_link_factory(
-            email="existing@example.com",
+            email="existing@testuser.dev",
         )
 
         response = await client.get(

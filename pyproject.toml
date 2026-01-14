@@ -40,6 +40,8 @@ dependencies = [
     # Discord bot
     "discord.py>=2.3",
     "scipy>=1.17.0",
+    # Rate limiting
+    "slowapi>=0.1",
 ]
 
 [project.scripts]
