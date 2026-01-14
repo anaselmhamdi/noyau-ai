@@ -444,7 +444,6 @@ def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
     import time
 
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.common.keys import Keys
     from selenium.webdriver.support import expected_conditions
     from selenium.webdriver.support.ui import WebDriverWait
 
@@ -457,9 +456,10 @@ def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
 
         logger.info("tiktok_content_verification_modal_detected")
 
-        # Press Escape to dismiss the modal and let verification complete
-        driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        logger.info("tiktok_modal_dismissed_with_escape")
+        # Click the primary button to proceed with publishing
+        button = driver.find_element(By.CSS_SELECTOR, "button.TUXButton")
+        button.click()
+        logger.info("tiktok_modal_button_clicked")
 
         # Wait for verification to complete (up to 3 minutes total, checking every 60s)
         for attempt in range(3):
@@ -470,9 +470,10 @@ def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
             try:
                 modal = driver.find_element(By.CSS_SELECTOR, ".TUXModal")
                 if modal.is_displayed():
-                    # Modal still there, press Escape again
-                    driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-                    logger.info("tiktok_modal_dismissed_again")
+                    # Modal still there, click button again
+                    btn = driver.find_element(By.CSS_SELECTOR, "button.TUXButton")
+                    btn.click()
+                    logger.info("tiktok_modal_button_clicked_again")
                 else:
                     # Modal gone, verification likely complete
                     break
