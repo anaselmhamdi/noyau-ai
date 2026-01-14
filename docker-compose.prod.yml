@@ -9,6 +9,7 @@ services:
       - ./config.yml:/app/config.yml:ro
       - ./output/videos:/app/output/videos
       - ./output/podcasts:/app/output/podcasts
+      - ./tiktok_cookies.txt:/app/tiktok_cookies.txt:ro
     ports:
       - "8000:8000"
     # Limit resources to prevent video encoding from starving the system
