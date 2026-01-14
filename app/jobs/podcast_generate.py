@@ -405,8 +405,9 @@ async def main(
         skip_video=skip_video,
     ).info("podcast_generate_started")
 
+    # Fetch data in a separate session to avoid connection timeout during generation
+    # Audio/video generation can take several minutes, causing Neon to close the connection
     async with AsyncSessionLocal() as db:
-        # Check if podcast already exists for this date
         issue = await get_issue_for_date(db, issue_date)
         if issue and issue.podcast_audio_url and not dry_run:
             print(f"Podcast already exists for {issue_date}: {issue.podcast_audio_url}")
@@ -420,180 +421,190 @@ async def main(
 
         # Fetch clusters with summaries
         clusters = await get_clusters_for_date(db, issue_date)
-        clusters_with_summaries = [c for c in clusters if c.summary]
 
-        if not clusters_with_summaries:
-            print(f"No cluster summaries found for {issue_date}")
-            logger.warning("no_summaries_found")
-            return
+        # Get episode count now (before closing session)
+        count_stmt = select(func.count()).where(Issue.podcast_audio_url.isnot(None))
+        count_result = await db.execute(count_stmt)
+        episode_number = (count_result.scalar() or 0) + 1
 
-        print(f"Found {len(clusters_with_summaries)} clusters with summaries")
+    # Filter clusters with summaries (after closing DB)
+    clusters_with_summaries = [c for c in clusters if c.summary]
 
-        # Take top N for podcast
-        top_clusters = clusters_with_summaries[:story_count]
-        print(f"Generating podcast for top {len(top_clusters)} stories")
-        print("-" * 40)
+    if not clusters_with_summaries:
+        print(f"No cluster summaries found for {issue_date}")
+        logger.warning("no_summaries_found")
+        return
 
-        # Convert to distill outputs
-        summaries = []
-        topics = []
-        for cluster in top_clusters:
-            summaries.append(summary_to_distill_output(cluster.summary))
-            topics.append(determine_topic(cluster))
-            print(f"  - {cluster.summary.headline[:60]}...")
+    print(f"Found {len(clusters_with_summaries)} clusters with summaries")
 
-        # Step 1: Generate script
-        print("\nGenerating podcast script...")
-        script_result = await generate_podcast_script(summaries, topics, issue_date)
+    # Take top N for podcast
+    top_clusters = clusters_with_summaries[:story_count]
+    print(f"Generating podcast for top {len(top_clusters)} stories")
+    print("-" * 40)
 
-        if not script_result:
-            print("Script generation failed")
-            logger.error("podcast_script_generation_failed")
-            return
+    # Convert to distill outputs
+    summaries = []
+    topics = []
+    for cluster in top_clusters:
+        summaries.append(summary_to_distill_output(cluster.summary))
+        topics.append(determine_topic(cluster))
+        print(f"  - {cluster.summary.headline[:60]}...")
 
-        script = script_result.script
-        print(f"Script generated: {len(script.stories)} stories")
-        logger.bind(
-            story_count=len(script.stories),
-            tokens=script_result.total_tokens,
-        ).info("podcast_script_generated")
+    # Step 1: Generate script
+    print("\nGenerating podcast script...")
+    script_result = await generate_podcast_script(summaries, topics, issue_date)
 
-        if dry_run:
-            print("\n(dry run - skipping audio generation)")
-            print("\nScript preview:")
-            print(f"Intro: {script.intro[:200]}...")
-            for i, story in enumerate(script.stories, 1):
-                print(f"\nStory {i}: {story.headline}")
-                print(f"  {story.body[:150]}...")
-            print(f"\nOutro: {script.outro[:100]}...")
-            return
+    if not script_result:
+        print("Script generation failed")
+        logger.error("podcast_script_generation_failed")
+        return
 
-        # Step 2: Generate audio
-        print("\nGenerating audio...")
-        generator = PodcastAudioGenerator(
-            voice="nova",
-            model="tts-1-hd",
-            background_volume=0.03,
+    script = script_result.script
+    print(f"Script generated: {len(script.stories)} stories")
+    logger.bind(
+        story_count=len(script.stories),
+        tokens=script_result.total_tokens,
+    ).info("podcast_script_generated")
+
+    if dry_run:
+        print("\n(dry run - skipping audio generation)")
+        print("\nScript preview:")
+        print(f"Intro: {script.intro[:200]}...")
+        for i, story in enumerate(script.stories, 1):
+            print(f"\nStory {i}: {story.headline}")
+            print(f"  {story.body[:150]}...")
+        print(f"\nOutro: {script.outro[:100]}...")
+        return
+
+    # Step 2: Generate audio
+    print("\nGenerating audio...")
+    generator = PodcastAudioGenerator(
+        voice="nova",
+        model="tts-1-hd",
+        background_volume=0.03,
+    )
+
+    audio_path = output_path / "noyau_daily.mp3"
+    audio_result = await generator.generate(
+        script=script,
+        output_path=audio_path,
+        include_background_music=True,
+    )
+
+    if not audio_result:
+        print("Audio generation failed")
+        logger.error("podcast_audio_generation_failed")
+        return
+
+    duration_min = audio_result.duration_seconds / 60
+    print(f"Audio generated: {duration_min:.1f} minutes")
+    print(f"  Path: {audio_result.audio_path}")
+    print(f"  Chapters: {len(audio_result.chapters)}")
+
+    # Step 3: Upload to S3
+    print("\nUploading to S3...")
+    s3_url = await upload_podcast_to_s3(audio_path, issue_date)
+
+    if s3_url:
+        print(f"  S3 URL: {s3_url}")
+    else:
+        print("  S3 upload skipped (not configured)")
+
+    # Step 4: Generate video with waveform (if not skipped)
+    video_path = None
+    video_s3_url = None
+    if not skip_video:
+        print("\nGenerating video with waveform...")
+        video_path = output_path / "noyau_daily.mp4"
+
+        # Check for custom background image (try PNG first, then JPG)
+        bg_path: Path | None = None
+        for ext in ("png", "jpg"):
+            candidate = Path(f"ui/public/podcast-video-bg.{ext}")
+            if candidate.exists():
+                bg_path = candidate
+                break
+
+        # episode_number was fetched earlier before closing DB
+        video_result = generate_podcast_video(
+            audio_path=audio_path,
+            output_path=video_path,
+            episode_number=episode_number,
+            issue_date=issue_date,
+            background_image_path=bg_path,
         )
 
-        audio_path = output_path / "noyau_daily.mp3"
-        audio_result = await generator.generate(
-            script=script,
-            output_path=audio_path,
-            include_background_music=True,
-        )
+        if video_result:
+            print(f"  Video generated: {video_result.video_path}")
 
-        if not audio_result:
-            print("Audio generation failed")
-            logger.error("podcast_audio_generation_failed")
-            return
-
-        duration_min = audio_result.duration_seconds / 60
-        print(f"Audio generated: {duration_min:.1f} minutes")
-        print(f"  Path: {audio_result.audio_path}")
-        print(f"  Chapters: {len(audio_result.chapters)}")
-
-        # Step 3: Upload to S3
-        print("\nUploading to S3...")
-        s3_url = await upload_podcast_to_s3(audio_path, issue_date)
-
-        if s3_url:
-            print(f"  S3 URL: {s3_url}")
+            # Upload video to S3
+            print("  Uploading video to S3...")
+            storage = get_storage_service()
+            if storage.is_configured():
+                video_key = f"podcasts/{issue_date.isoformat()}/noyau_daily.mp4"
+                video_s3_url = await storage.upload_file(
+                    file_path=video_path,
+                    key=video_key,
+                    content_type="video/mp4",
+                    public=True,
+                    metadata={
+                        "issue_date": issue_date.isoformat(),
+                        "type": "podcast_video",
+                    },
+                )
+                if video_s3_url:
+                    print(f"  Video S3 URL: {video_s3_url}")
         else:
-            print("  S3 upload skipped (not configured)")
+            print("  Video generation failed")
+    else:
+        print("\nSkipping video generation")
 
-        # Step 4: Generate video with waveform (if not skipped)
-        video_path = None
-        video_s3_url = None
-        if not skip_video:
-            print("\nGenerating video with waveform...")
-            video_path = output_path / "noyau_daily.mp4"
+    # Step 5: Upload to YouTube (if not skipped)
+    youtube_url = None
+    if not skip_youtube and video_path and video_path.exists():
+        print("\nUploading to YouTube...")
+        # YouTube upload would go here using existing YouTubeUploader
+        # from app.video.uploader import YouTubeUploader
+        print("  YouTube upload not yet integrated")
 
-            # Check for custom background image (try PNG first, then JPG)
-            bg_path: Path | None = None
-            for ext in ("png", "jpg"):
-                candidate = Path(f"ui/public/podcast-video-bg.{ext}")
-                if candidate.exists():
-                    bg_path = candidate
-                    break
+    # Step 6: Update Issue record with fresh DB session
+    if s3_url:
+        async with AsyncSessionLocal() as db:
+            # Re-fetch issue to update
+            stmt = select(Issue).where(Issue.issue_date == issue_date)
+            result = await db.execute(stmt)
+            issue_to_update = result.scalar_one_or_none()
+            if issue_to_update:
+                issue_to_update.podcast_audio_url = s3_url
+                issue_to_update.podcast_youtube_url = youtube_url
+                issue_to_update.podcast_duration_seconds = audio_result.duration_seconds
+                await db.commit()
+                print("\nIssue updated with podcast URL")
 
-            # Count total episodes for episode number
-            count_stmt = select(func.count()).where(Issue.podcast_audio_url.isnot(None))
-            count_result = await db.execute(count_stmt)
-            episode_number = (count_result.scalar() or 0) + 1  # +1 for this new episode
-
-            video_result = generate_podcast_video(
-                audio_path=audio_path,
-                output_path=video_path,
-                episode_number=episode_number,
-                issue_date=issue_date,
-                background_image_path=bg_path,
-            )
-
-            if video_result:
-                print(f"  Video generated: {video_result.video_path}")
-
-                # Upload video to S3
-                print("  Uploading video to S3...")
-                storage = get_storage_service()
-                if storage.is_configured():
-                    video_key = f"podcasts/{issue_date.isoformat()}/noyau_daily.mp4"
-                    video_s3_url = await storage.upload_file(
-                        file_path=video_path,
-                        key=video_key,
-                        content_type="video/mp4",
-                        public=True,
-                        metadata={
-                            "issue_date": issue_date.isoformat(),
-                            "type": "podcast_video",
-                        },
-                    )
-                    if video_s3_url:
-                        print(f"  Video S3 URL: {video_s3_url}")
-            else:
-                print("  Video generation failed")
-        else:
-            print("\nSkipping video generation")
-
-        # Step 5: Upload to YouTube (if not skipped)
-        youtube_url = None
-        if not skip_youtube and video_path and video_path.exists():
-            print("\nUploading to YouTube...")
-            # YouTube upload would go here using existing YouTubeUploader
-            # from app.video.uploader import YouTubeUploader
-            print("  YouTube upload not yet integrated")
-
-        # Step 6: Update Issue record
-        if s3_url:
-            issue.podcast_audio_url = s3_url
-            issue.podcast_youtube_url = youtube_url
-            issue.podcast_duration_seconds = audio_result.duration_seconds
-            await db.commit()
-            print("\nIssue updated with podcast URL")
-
-        # Step 7: Regenerate RSS feed
-        print("\nRegenerating RSS feed...")
+    # Step 7: Regenerate RSS feed with fresh DB session
+    print("\nRegenerating RSS feed...")
+    async with AsyncSessionLocal() as db:
         await regenerate_rss_feed(db, output_path)
 
-        # Cleanup
-        if s3_url:
-            print("\nCleaning up local files...")
-            shutil.rmtree(output_path)
+    # Cleanup
+    if s3_url:
+        print("\nCleaning up local files...")
+        shutil.rmtree(output_path)
 
-        # Summary
-        print("\n" + "=" * 40)
-        print(f"Podcast generated for {issue_date}")
-        print(f"  Duration: {duration_min:.1f} minutes")
-        if s3_url:
-            print(f"  Audio URL: {s3_url}")
-        if youtube_url:
-            print(f"  YouTube: {youtube_url}")
+    # Summary
+    print("\n" + "=" * 40)
+    print(f"Podcast generated for {issue_date}")
+    print(f"  Duration: {duration_min:.1f} minutes")
+    if s3_url:
+        print(f"  Audio URL: {s3_url}")
+    if youtube_url:
+        print(f"  YouTube: {youtube_url}")
 
-        logger.bind(
-            issue_date=str(issue_date),
-            duration=audio_result.duration_seconds,
-            s3_url=s3_url,
-        ).info("podcast_generate_completed")
+    logger.bind(
+        issue_date=str(issue_date),
+        duration=audio_result.duration_seconds,
+        s3_url=s3_url,
+    ).info("podcast_generate_completed")
 
 
 if __name__ == "__main__":

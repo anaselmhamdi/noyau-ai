@@ -308,30 +308,38 @@ def create_subtitle_clips(
         List of TextClip objects with timing applied
     """
     subtitle_clips = []
+    target_y_ratio = POSITION_SUBTITLE_Y
 
     for segment in subtitles:
         # Skip pause markers
         if segment.text.strip() == "...":
             continue
 
-        # Create subtitle clip with timing - positioned slightly above center
-        # to prevent bottom clipping on multi-line text
+        # Create subtitle clip with timing
         subtitle_text = segment.text.upper()
-        subtitle_y = int(format_config.height * POSITION_SUBTITLE_Y)
+        text_clip = TextClip(
+            text=subtitle_text,
+            font_size=style.font_size + FONT_SIZE_SUBTITLE,
+            color=style.font_color,
+            font=style.font,
+            stroke_color=COLOR_STROKE,
+            stroke_width=STROKE_WIDTH_SUBTITLE,
+            text_align="center",
+            method="caption",
+            size=(format_config.width - SUBTITLE_WIDTH_MARGIN, None),
+            margin=SUBTITLE_MARGIN,
+        )
+
+        # Center the subtitle vertically at the target position
+        # This prevents bottom clipping on multi-line text by growing equally up/down
+        target_y = int(format_config.height * target_y_ratio - text_clip.h / 2)
+        # Clamp to safe bounds to prevent edge clipping
+        min_y = int(format_config.height * 0.15)
+        max_y = int(format_config.height - text_clip.h - format_config.height * 0.15)
+        target_y = max(min_y, min(target_y, max_y))
+
         clip = (
-            TextClip(
-                text=subtitle_text,
-                font_size=style.font_size + FONT_SIZE_SUBTITLE,
-                color=style.font_color,
-                font=style.font,
-                stroke_color=COLOR_STROKE,
-                stroke_width=STROKE_WIDTH_SUBTITLE,
-                text_align="center",
-                method="caption",
-                size=(format_config.width - SUBTITLE_WIDTH_MARGIN, None),
-                margin=SUBTITLE_MARGIN,
-            )
-            .with_position(("center", subtitle_y))
+            text_clip.with_position(("center", target_y))
             .with_start(segment.start_time)
             .with_end(segment.end_time)
         )
