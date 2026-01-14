@@ -62,7 +62,6 @@ class Settings(BaseSettings):
 
     # Video Generation
     video_enabled: bool = Field(default=False)
-    video_output_dir: str = Field(default="./output/videos")
     pexels_api_key: str = Field(default="")
     freesound_client_id: str = Field(default="")  # For background music
     freesound_client_secret: str = Field(default="")  # Used as API token
@@ -342,9 +341,6 @@ class VideoConfig:
         # Combine env and config.yml settings
         self.enabled: bool = settings.video_enabled and data.get("enabled", False)
         self.count: int = data.get("count", 3)
-        self.output_dir: str = settings.video_output_dir or data.get(
-            "output_dir", "./output/videos"
-        )
         self.tts_provider: str = settings.tts_provider
 
         # Combined video mode settings
@@ -379,7 +375,6 @@ class PodcastAudioConfig:
 
     def __init__(self, data: dict[str, Any]) -> None:
         self.background_music_volume: float = data.get("background_music_volume", 0.03)
-        self.output_dir: str = data.get("output_dir", "./output/podcasts")
 
 
 class PodcastYouTubeConfig:

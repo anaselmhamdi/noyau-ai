@@ -125,8 +125,7 @@ scheduler_enabled = true
 # =============================================================================
 
 # Enable video generation feature
-video_enabled    = false
-video_output_dir = "/opt/noyau/output/videos"
+video_enabled = false
 
 # Pexels API (free stock footage) - https://www.pexels.com/api/new/
 pexels_api_key = ""

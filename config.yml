@@ -356,7 +356,6 @@ instagram:
 video:
   enabled: true  # Set to true once Pexels + YouTube credentials are configured
   count: 3  # Number of videos to generate daily (top N stories)
-  output_dir: "./output/videos"  # Directory for generated videos
   combined_mode: true  # Single combined video with all stories (vs individual videos)
   combined_duration_target: 60  # Target duration for combined video (seconds)
 
@@ -414,7 +413,6 @@ podcast:
   # Audio settings
   audio:
     background_music_volume: 0.03  # Very subtle background music
-    output_dir: "./output/podcasts"
 
   # YouTube upload settings for podcast (audio-only video)
   youtube:

@@ -123,7 +123,6 @@ write_files:
       # Video Generation
       # =============================================================================
       VIDEO_ENABLED=${video_enabled}
-      VIDEO_OUTPUT_DIR=${video_output_dir}
       PEXELS_API_KEY=${pexels_api_key}
       FREESOUND_CLIENT_ID=${freesound_client_id}
       FREESOUND_CLIENT_SECRET=${freesound_client_secret}

@@ -230,12 +230,6 @@ variable "video_enabled" {
   default     = false
 }
 
-variable "video_output_dir" {
-  description = "Directory for generated videos"
-  type        = string
-  default     = "/opt/noyau/output/videos"
-}
-
 variable "pexels_api_key" {
   description = "Pexels API key for stock footage"
   type        = string

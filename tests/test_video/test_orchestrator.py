@@ -70,7 +70,6 @@ def mock_video_config() -> VideoConfigLocal:
     return VideoConfigLocal(
         enabled=True,
         count=3,
-        output_dir="./test_output",
         combined_mode=False,
         combined_duration_target=60,
         format=VideoFormatConfig(),
@@ -85,7 +84,6 @@ def mock_combined_config() -> VideoConfigLocal:
     return VideoConfigLocal(
         enabled=True,
         count=3,
-        output_dir="./test_output",
         combined_mode=True,
         combined_duration_target=60,
         format=VideoFormatConfig(),
@@ -307,7 +305,6 @@ class TestGenerateVideosForIssue:
         mock_config = VideoConfigLocal(
             enabled=True,
             count=3,
-            output_dir=str(tmp_path),
             combined_mode=True,
             combined_duration_target=60,
         )
@@ -342,7 +339,6 @@ class TestGenerateVideosForIssue:
         mock_config = VideoConfigLocal(
             enabled=True,
             count=3,
-            output_dir=str(tmp_path),
             combined_mode=False,
             combined_duration_target=60,
         )
@@ -373,7 +369,6 @@ class TestGenerateVideosForIssue:
         mock_config = VideoConfigLocal(
             enabled=False,
             count=3,
-            output_dir="./output",
             combined_mode=False,
         )
 
@@ -392,7 +387,6 @@ class TestGenerateVideosForIssue:
         mock_config = VideoConfigLocal(
             enabled=True,
             count=3,
-            output_dir=str(tmp_path),
             combined_mode=True,
             combined_duration_target=60,
         )

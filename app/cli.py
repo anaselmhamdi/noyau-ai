@@ -246,7 +246,6 @@ def video(
 
         config = VideoConfigLocal(
             enabled=True,
-            output_dir=str(output_dir),
             format=VideoFormatConfig(
                 width=spec.width,
                 height=spec.height,

@@ -5,7 +5,7 @@ Run with: python -m app.jobs.video_generate
 Options:
   --date DATE         Issue date (default: today)
   --count N           Number of videos to generate (default: from config, typically 3)
-  --output-dir PATH   Output directory for videos (default: from config)
+  --output-dir PATH   Output directory for videos (default: temp directory)
   --combined          Generate single combined video instead of individual videos
   --dry-run           Preview without generating videos
 
@@ -18,6 +18,7 @@ Examples:
 
 import argparse
 import asyncio
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
@@ -117,8 +118,8 @@ async def main(
     if count is None:
         count = video_config.count
 
-    # Use provided output_dir or fall back to config
-    output_path = Path(output_dir) if output_dir else Path(video_config.output_dir)
+    # Use provided output_dir or create temp directory
+    output_path = Path(output_dir) if output_dir else Path(tempfile.mkdtemp(prefix="noyau_video_"))
 
     # Use combined flag or fall back to config
     use_combined = combined or video_config.combined_mode
@@ -298,7 +299,7 @@ if __name__ == "__main__":
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for videos. Default: from config",
+        help="Output directory for videos. Default: temp directory",
     )
     parser.add_argument(
         "--combined",

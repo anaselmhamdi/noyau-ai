@@ -4,6 +4,7 @@ Podcast generation job for creating daily audio digests.
 Run with: python -m app.jobs.podcast_generate
 Options:
   --date DATE         Issue date (default: today)
+  --output-dir PATH   Output directory for podcast files (default: temp directory)
   --dry-run           Preview without generating audio
   --skip-youtube      Skip YouTube upload
   --skip-video        Skip video generation (audio only)
@@ -13,11 +14,13 @@ Examples:
   python -m app.jobs.podcast_generate --date 2026-01-13
   python -m app.jobs.podcast_generate --dry-run
   python -m app.jobs.podcast_generate --skip-video
+  python -m app.jobs.podcast_generate --output-dir /tmp/podcasts
 """
 
 import argparse
 import asyncio
 import shutil
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
@@ -184,8 +187,7 @@ async def generate_podcast_for_issue(
             return {"success": False, "reason": "disabled"}
         story_count = podcast_cfg.story_count
 
-    output_dir = Path("./output/podcasts") / issue_date.isoformat()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(tempfile.mkdtemp(prefix=f"noyau_podcast_{issue_date}_"))
 
     logger.bind(
         issue_date=str(issue_date),
@@ -367,6 +369,7 @@ async def regenerate_rss_feed(db: AsyncSession, output_dir: Path) -> None:
 
 async def main(
     issue_date: date | None = None,
+    output_dir: str | None = None,
     dry_run: bool = False,
     skip_youtube: bool = False,
     skip_video: bool = False,
@@ -388,8 +391,12 @@ async def main(
             return
         story_count = podcast_cfg.story_count
 
-    output_dir = Path("./output/podcasts") / issue_date.isoformat()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Use provided output_dir or create temp directory
+    if output_dir:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+    else:
+        output_path = Path(tempfile.mkdtemp(prefix=f"noyau_podcast_{issue_date}_"))
 
     logger.bind(
         issue_date=str(issue_date),
@@ -469,7 +476,7 @@ async def main(
             background_volume=0.03,
         )
 
-        audio_path = output_dir / "noyau_daily.mp3"
+        audio_path = output_path / "noyau_daily.mp3"
         audio_result = await generator.generate(
             script=script,
             output_path=audio_path,
@@ -500,7 +507,7 @@ async def main(
         video_s3_url = None
         if not skip_video:
             print("\nGenerating video with waveform...")
-            video_path = output_dir / "noyau_daily.mp4"
+            video_path = output_path / "noyau_daily.mp4"
 
             # Check for custom background image (try PNG first, then JPG)
             bg_path: Path | None = None
@@ -566,12 +573,12 @@ async def main(
 
         # Step 7: Regenerate RSS feed
         print("\nRegenerating RSS feed...")
-        await regenerate_rss_feed(db, output_dir)
+        await regenerate_rss_feed(db, output_path)
 
         # Cleanup
         if s3_url:
             print("\nCleaning up local files...")
-            shutil.rmtree(output_dir)
+            shutil.rmtree(output_path)
 
         # Summary
         print("\n" + "=" * 40)
@@ -598,6 +605,12 @@ if __name__ == "__main__":
         help="Issue date (YYYY-MM-DD). Default: today",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory for podcast files. Default: temp directory",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview script without generating audio",
@@ -617,6 +630,7 @@ if __name__ == "__main__":
     asyncio.run(
         main(
             issue_date=args.date,
+            output_dir=args.output_dir,
             dry_run=args.dry_run,
             skip_youtube=args.skip_youtube,
             skip_video=args.skip_video,

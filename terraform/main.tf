@@ -110,7 +110,6 @@ resource "hcloud_server" "main" {
 
     # Video
     video_enabled           = var.video_enabled
-    video_output_dir        = var.video_output_dir
     pexels_api_key          = var.pexels_api_key
     freesound_client_id     = var.freesound_client_id
     freesound_client_secret = var.freesound_client_secret

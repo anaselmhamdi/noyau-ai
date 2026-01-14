@@ -1,6 +1,7 @@
 """Video generation orchestrator - coordinates the full pipeline."""
 
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -84,7 +85,6 @@ class VideoConfigLocal:
 
     enabled: bool = False
     count: int = 3
-    output_dir: str = "./output/videos"
     combined_mode: bool = False
     combined_duration_target: int = 60
     format: VideoFormatConfig = field(default_factory=VideoFormatConfig)
@@ -100,7 +100,6 @@ def get_video_config() -> VideoConfigLocal:
     return VideoConfigLocal(
         enabled=video_cfg.enabled,
         count=video_cfg.count,
-        output_dir=video_cfg.output_dir,
         combined_mode=video_cfg.combined_mode,
         combined_duration_target=video_cfg.combined_duration_target,
         format=VideoFormatConfig(
@@ -608,7 +607,7 @@ async def generate_videos_for_issue(
         logger.info("video_generation_disabled")
         return []
 
-    output_dir = Path(config.output_dir)
+    output_dir = Path(tempfile.mkdtemp(prefix="noyau_video_"))
 
     # Take top N stories for video generation
     top_stories = ranked_with_summaries[: config.count]
