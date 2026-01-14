@@ -560,31 +560,40 @@ def _upload_via_browser(
         logger.info("tiktok_navigated_to_upload")
 
         # 4. Wait for and find file input (may be hidden)
-        # TikTok's upload page has an iframe or hidden input
-        time.sleep(5)  # Wait for page to fully load
+        # TikTok's upload page renders the input via JavaScript, so we need to wait
+        from selenium.webdriver.support import expected_conditions
+        from selenium.webdriver.support.ui import WebDriverWait
 
-        # Try multiple selectors for file input
         file_input = None
-        selectors = [
-            "input[type='file']",
-            "input[accept*='video']",
-            "iframe",  # TikTok sometimes uses an iframe
-        ]
 
-        for selector in selectors:
-            try:
-                elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if elements:
-                    if selector == "iframe":
-                        # Switch to iframe and find input
-                        driver.switch_to.frame(elements[0])
-                        file_input = driver.find_element(By.CSS_SELECTOR, "input[type='file']")
-                    else:
+        # Wait up to 30 seconds for file input to appear
+        try:
+            wait = WebDriverWait(driver, 30)
+            file_input = wait.until(
+                expected_conditions.presence_of_element_located(
+                    (By.CSS_SELECTOR, "input[type='file']")
+                )
+            )
+            logger.info("tiktok_file_input_found_via_wait")
+        except Exception as e:
+            logger.bind(error=str(e)).warning("tiktok_file_input_wait_failed")
+
+            # Fallback: try multiple selectors
+            time.sleep(5)
+            selectors = [
+                "input[type='file']",
+                "input[accept*='video']",
+            ]
+
+            for selector in selectors:
+                try:
+                    elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                    if elements:
                         file_input = elements[0]
-                    logger.bind(selector=selector).info("tiktok_file_input_found")
-                    break
-            except Exception:
-                continue
+                        logger.bind(selector=selector).info("tiktok_file_input_found_fallback")
+                        break
+                except Exception:
+                    continue
 
         if not file_input:
             # Save debug info
