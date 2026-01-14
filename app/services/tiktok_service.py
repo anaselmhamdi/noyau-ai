@@ -562,6 +562,19 @@ def _upload_via_browser(
                 success=True,
             )
         else:
+            # Capture debug info on failure
+            if captured_driver:
+                try:
+                    captured_driver.save_screenshot("/tmp/tiktok_error.png")
+                    logger.info("tiktok_failure_screenshot_saved")
+                except Exception:
+                    pass
+                try:
+                    with open("/tmp/tiktok_error.html", "w") as f:
+                        f.write(captured_driver.page_source)
+                    logger.info("tiktok_failure_html_saved")
+                except Exception:
+                    pass
             logger.bind(failed=failed).warning("tiktok_browser_upload_failed")
             return TikTokPostResult(
                 publish_id=None,
