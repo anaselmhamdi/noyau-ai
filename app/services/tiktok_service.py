@@ -412,9 +412,10 @@ def _get_chrome_driver(headless: bool = True):
 
     options = Options()
     if headless:
-        options.add_argument("--headless")
+        options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.binary_location = "/usr/bin/chromium"
 
@@ -425,10 +426,25 @@ def _get_chrome_driver(headless: bool = True):
 
 
 def _patch_tiktok_uploader_browser(headless: bool = True):
-    """Monkey-patch tiktok-uploader to use system chromium."""
+    """Monkey-patch tiktok-uploader to use system chromium.
+
+    Must be called BEFORE importing upload_video to work correctly.
+    """
+    import sys
+
+    # Patch the browsers module
     import tiktok_uploader.browsers as tb
 
     tb.get_browser = lambda *args, **kwargs: _get_chrome_driver(headless)
+
+    # Also patch it in sys.modules to catch any 'from' imports
+    if "tiktok_uploader.upload" in sys.modules:
+        # Module already loaded, patch its reference directly
+        upload_module = sys.modules["tiktok_uploader.upload"]
+        if hasattr(upload_module, "get_browser"):
+            setattr(
+                upload_module, "get_browser", lambda *args, **kwargs: _get_chrome_driver(headless)
+            )
 
 
 def _handle_content_verification_modal(driver, timeout: int = 5) -> bool:
@@ -516,13 +532,24 @@ def _upload_via_browser(
     driver = None
     captured_driver = None
     try:
-        # Patch tiktok-uploader to use system chromium and get driver reference
-        _patch_tiktok_uploader_browser(headless)
+        import sys
 
-        # Store original get_browser to capture driver
+        # Patch tiktok-uploader BEFORE importing upload module
         import tiktok_uploader.browsers as tb
+
+        tb.get_browser = lambda *args, **kwargs: _get_chrome_driver(headless)
+
+        # Force reload upload module to pick up patched get_browser
+        if "tiktok_uploader.upload" in sys.modules:
+            del sys.modules["tiktok_uploader.upload"]
+
+        # Also patch the imported reference in the upload module
+        import tiktok_uploader.upload as upload_module
         from tiktok_uploader.upload import upload_video
 
+        setattr(upload_module, "get_browser", lambda *args, **kwargs: _get_chrome_driver(headless))
+
+        # Wrap to capture driver
         original_get_browser = tb.get_browser
 
         def capturing_get_browser(*args, **kwargs):
@@ -531,6 +558,7 @@ def _upload_via_browser(
             return captured_driver
 
         tb.get_browser = capturing_get_browser
+        setattr(upload_module, "get_browser", capturing_get_browser)
 
         # Start upload in a way that we can handle the modal
         # tiktok-uploader returns list of failed videos (empty = all succeeded)
