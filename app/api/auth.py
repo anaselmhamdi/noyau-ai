@@ -1,6 +1,14 @@
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
@@ -19,12 +27,17 @@ from app.core.security import (
 )
 from app.dependencies import DBSession
 from app.models.user import MagicLink, Session, User
-from app.schemas.auth import MagicLinkRequest, MagicLinkResponse
+from app.schemas.auth import (
+    MagicLinkRequest,
+    MagicLinkResponse,
+    SubscribeRequest,
+    SubscribeResponse,
+)
 from app.services.discord_service import (
     send_discord_error,
     send_discord_subscription_notification,
 )
-from app.services.email_service import send_magic_link_email
+from app.services.email_service import send_magic_link_email, send_welcome_email
 from app.services.email_validation import ValidationStatus, get_email_validator
 from app.services.posthog_client import track_session_started, track_signup_completed
 from app.services.tiktok_service import build_auth_url, exchange_code_for_tokens
@@ -111,6 +124,129 @@ async def request_magic_link(
         )
 
     return MagicLinkResponse()
+
+
+async def _process_subscription(
+    email: str,
+    timezone: str | None,
+    delivery_time_local: str | None,
+) -> None:
+    """Background task to validate email and create user if valid."""
+    from app.core.database import AsyncSessionLocal
+
+    # Validate email with Verifalia
+    validator = get_email_validator()
+    validation_result = await validator.validate(email)
+
+    if not validator.should_allow(validation_result):
+        logger.bind(
+            email=email,
+            status=validation_result.status,
+            reason=validation_result.reason,
+        ).warning("email_validation_rejected_background")
+        return  # Silently reject invalid emails
+
+    # Log risky emails for monitoring (but allow them)
+    if validation_result.status == ValidationStatus.RISKY:
+        logger.bind(
+            email=email,
+            is_disposable=validation_result.is_disposable,
+            is_role_based=validation_result.is_role_based,
+        ).info("email_validation_risky")
+
+    # Create user in new session
+    async with AsyncSessionLocal() as db:
+        # Find or create user
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+
+        already_subscribed = user is not None and user.is_subscribed
+
+        if not user:
+            # Create new user with timezone preferences if provided
+            user_kwargs: dict = {
+                "email": email,
+                "ref_code": generate_ref_code(),
+            }
+
+            # Apply timezone if valid
+            if timezone:
+                user_kwargs["timezone"] = timezone
+
+            # Apply delivery time if valid
+            if delivery_time_local:
+                user_kwargs["delivery_time_local"] = delivery_time_local
+
+            user = User(**user_kwargs)
+            db.add(user)
+            await db.flush()
+
+            # Notify Discord of new subscriber
+            await send_discord_subscription_notification(
+                email=user.email,
+                timezone=user_kwargs.get("timezone"),
+                delivery_time=user_kwargs.get("delivery_time_local"),
+            )
+
+            logger.bind(email=email).info("user_subscribed_new")
+
+        elif not user.is_subscribed:
+            # Resubscribe existing user
+            user.is_subscribed = True
+            await db.flush()
+            logger.bind(email=email).info("user_resubscribed")
+
+        # Send welcome email (skip if already subscribed)
+        if not already_subscribed:
+            try:
+                await send_welcome_email(
+                    email=email,
+                    timezone=user.timezone,
+                    delivery_time_local=user.delivery_time_local,
+                )
+            except Exception as e:
+                logger.bind(error=str(e), email=email).error("welcome_email_failed")
+                await send_discord_error(
+                    title="Welcome Email Failed",
+                    error=str(e),
+                    context={"email": email, "endpoint": "/auth/subscribe"},
+                )
+
+        # Track signup completed
+        track_signup_completed(
+            email=email,
+            issue_date=None,
+            validation_status=validation_result.status.value,
+        )
+
+        await db.commit()
+
+
+@router.post("/subscribe", response_model=SubscribeResponse)
+@limiter.limit("5/minute;20/hour")
+async def subscribe(
+    request: Request,
+    body: SubscribeRequest,
+    background_tasks: BackgroundTasks,
+) -> SubscribeResponse:
+    """
+    Subscribe to the daily digest (optimistic flow).
+
+    Returns immediately and redirects to /welcome.
+    Email validation and user creation happen in background.
+    Rate limited to 5 requests per minute, 20 per hour per IP.
+    """
+    # Queue background task for validation and user creation
+    background_tasks.add_task(
+        _process_subscription,
+        email=body.email,
+        timezone=body.timezone,
+        delivery_time_local=body.delivery_time_local,
+    )
+
+    logger.bind(email=body.email).info("subscription_queued")
+
+    return SubscribeResponse()
 
 
 @router.get("/magic")

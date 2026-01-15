@@ -16,7 +16,7 @@ const formLocation = isHero ? 'hero' : 'footer';
   data-issue-date={issueDate || ''}
 >
   <form
-    action="/auth/request-link"
+    action="/auth/subscribe"
     method="POST"
     class={`flex ${isHero ? 'flex-col sm:flex-row' : ''} gap-3`}
     id="subscribe-form"
@@ -154,18 +154,16 @@ const formLocation = isHero ? 'hero' : 'footer';
       }
 
       try {
-        const response = await fetch('/auth/request-link', {
+        const response = await fetch('/auth/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
 
         if (response.ok) {
-          // Show success message
-          if (messageDiv) messageDiv.classList.remove('hidden');
-          if (successMsg) successMsg.classList.remove('hidden');
-          if (timezoneInfo) timezoneInfo.classList.add('hidden');
-          form.classList.add('hidden');
+          const data = await response.json();
+          // Redirect to welcome page
+          window.location.href = data.redirect || '/welcome';
         } else {
           // Show error message
           if (messageDiv) messageDiv.classList.remove('hidden');

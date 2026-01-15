@@ -45,6 +45,50 @@ class MagicLinkResponse(BaseModel):
     message: str = "Magic link sent to your email"
 
 
+class SubscribeRequest(BaseModel):
+    """Request body for instant subscription (no magic link)."""
+
+    email: EmailStr
+    timezone: str | None = Field(default=None, max_length=50)
+    delivery_time_local: str | None = Field(default=None, max_length=5)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        from app.core.datetime_utils import is_valid_timezone
+
+        if not is_valid_timezone(v):
+            return None  # Fall back to default instead of raising error
+        return v
+
+    @field_validator("delivery_time_local")
+    @classmethod
+    def validate_delivery_time(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        # Validate HH:MM format
+        try:
+            parts = v.split(":")
+            if len(parts) != 2:
+                return None
+            hour, minute = int(parts[0]), int(parts[1])
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                return None
+            return f"{hour:02d}:{minute:02d}"
+        except (ValueError, IndexError):
+            return None
+
+
+class SubscribeResponse(BaseModel):
+    """Response after subscribing."""
+
+    ok: bool = True
+    message: str = "You're subscribed!"
+    redirect: str = "/welcome"
+
+
 class MeResponse(BaseModel):
     """Response for /api/me endpoint."""
 

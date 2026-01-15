@@ -96,6 +96,91 @@ async def send_magic_link_email(
     logger.bind(email=email).info("magic_link_sent")
 
 
+async def send_welcome_email(
+    email: str,
+    timezone: str | None = None,
+    delivery_time_local: str | None = None,
+) -> None:
+    """
+    Send a welcome email after subscription.
+
+    Args:
+        email: Recipient email address
+        timezone: User's IANA timezone (e.g., "America/New_York")
+        delivery_time_local: User's preferred delivery time in HH:MM format
+    """
+    _init_resend()
+    settings = get_settings()
+
+    # Format delivery time for display (e.g., "08:00" -> "8:00 AM")
+    delivery_time_display = "8:00 AM"
+    if delivery_time_local:
+        try:
+            parts = delivery_time_local.split(":")
+            hour, minute = int(parts[0]), int(parts[1])
+            ampm = "AM" if hour < 12 else "PM"
+            hour_12 = hour % 12 or 12
+            delivery_time_display = f"{hour_12}:{minute:02d} {ampm}"
+        except (ValueError, IndexError):
+            pass
+
+    # Format timezone for display (e.g., "America/New_York" -> "New York time")
+    timezone_display = None
+    if timezone:
+        city = timezone.split("/")[-1].replace("_", " ")
+        timezone_display = f"{city} time"
+
+    # Build settings URL (users will need to log in via magic link to access)
+    settings_url = f"{settings.base_url}/settings"
+
+    # Generate unsubscribe URL
+    unsubscribe_token = generate_unsubscribe_token(email)
+    unsubscribe_url = (
+        f"{settings.base_url}/auth/unsubscribe?email={email}&token={unsubscribe_token}"
+    )
+
+    try:
+        template = jinja_env.get_template("welcome.html")
+        html = template.render(
+            delivery_time_display=delivery_time_display,
+            timezone_display=timezone_display,
+            settings_url=settings_url,
+            unsubscribe_url=unsubscribe_url,
+        )
+    except Exception:
+        # Fallback to simple HTML if template not found
+        html = f"""
+        <html>
+        <body style="font-family: sans-serif; padding: 20px;">
+            <h2>Welcome to NoyauNews!</h2>
+            <p>You're now subscribed to the daily engineering digest.</p>
+            <p>Your first digest arrives tomorrow at {delivery_time_display}.</p>
+            <p style="color: #666; font-size: 14px;">
+                <a href="{settings_url}">Manage your preferences</a> |
+                <a href="{unsubscribe_url}">Unsubscribe</a>
+            </p>
+        </body>
+        </html>
+        """
+
+    logger.bind(email=email).info("sending_welcome_email")
+
+    if not settings.resend_api_key:
+        logger.bind(email=email).warning("resend_api_key_not_set")
+        return
+
+    resend.Emails.send(
+        {
+            "from": f"NoyauNews <noreply@{settings.email_domain}>",
+            "to": [email],
+            "subject": "Welcome to NoyauNews",
+            "html": html,
+        }
+    )
+
+    logger.bind(email=email).info("welcome_email_sent")
+
+
 async def send_daily_digest(
     email: str,
     issue_date: str,

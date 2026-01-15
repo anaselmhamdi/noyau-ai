@@ -65,7 +65,7 @@ const formattedDate = new Date(latestDate).toLocaleDateString('en-US', {
               </span>
               <div>
                 <p class="text-body text-text font-medium">Check your inbox</p>
-                <p class="text-body text-muted">You can now access the full daily digest (items 6-10)</p>
+                <p class="text-body text-muted">We sent you a welcome email with settings link</p>
               </div>
             </li>
             <li class="flex items-start gap-3">
@@ -141,20 +141,41 @@ const formattedDate = new Date(latestDate).toLocaleDateString('en-US', {
 <script>
   import { trackMagicLinkClicked } from '../lib/posthog';
 
-  // Track that user came from magic link
+  // Track that user completed signup and landed on welcome page
   trackMagicLinkClicked();
 
-  // Fetch user's delivery preferences and update display
+  // Detect user's timezone for display
+  function detectTimezone(): string {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'UTC';
+    }
+  }
+
+  // Format timezone for display (e.g., "America/New_York" -> "New York")
+  function formatTimezone(tz: string): string {
+    return tz.split('/').pop()?.replace(/_/g, ' ') || tz;
+  }
+
+  // Update delivery info with user preferences or detected timezone
   async function updateDeliveryInfo() {
+    const deliveryTimeEl = document.getElementById('delivery-time');
+    const timezoneInfoEl = document.getElementById('timezone-info');
+
+    // First, set default based on detected timezone
+    const detectedTz = detectTimezone();
+    if (timezoneInfoEl) {
+      timezoneInfoEl.textContent = `in ${formatTimezone(detectedTz)} time`;
+    }
+
+    // Then try to fetch user preferences if logged in
     try {
       const res = await fetch('/api/me');
       if (!res.ok) return;
 
       const data = await res.json();
       if (!data.authed) return;
-
-      const deliveryTimeEl = document.getElementById('delivery-time');
-      const timezoneInfoEl = document.getElementById('timezone-info');
 
       if (data.delivery_time_local && deliveryTimeEl) {
         // Parse HH:MM to 12-hour format
@@ -170,7 +191,7 @@ const formattedDate = new Date(latestDate).toLocaleDateString('en-US', {
         timezoneInfoEl.textContent = `in ${cityName} time`;
       }
     } catch {
-      // Silently fail - default text is fine
+      // Silently fail - detected timezone is fine
     }
   }
 

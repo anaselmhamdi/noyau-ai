@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Welcome to NoyauNews</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td { font-family: Arial, sans-serif !important; }
+    </style>
+    <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0B0F14;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #0B0F14;">
+        <tr>
+            <td align="center" style="padding: 40px 16px;">
+                <table role="presentation" style="width: 100%; max-width: 480px; border-collapse: collapse;">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 24px 32px; text-align: center;">
+                            <table role="presentation" style="border-collapse: collapse; margin: 0 auto;">
+                                <tr>
+                                    <td style="padding-right: 12px; vertical-align: middle;">
+                                        <span style="display: inline-block; font-size: 20px; color: #94A3B8;">[ </span>
+                                        <span style="display: inline-block; width: 10px; height: 10px; background-color: #22D3EE; border-radius: 50%;"></span>
+                                        <span style="display: inline-block; font-size: 20px; color: #94A3B8;"> ]</span>
+                                    </td>
+                                    <td style="vertical-align: middle;">
+                                        <span style="font-size: 22px; font-weight: 600; color: #E5E7EB; letter-spacing: -0.5px;">Noyau</span><span style="font-size: 22px; font-weight: 600; color: #22D3EE; letter-spacing: -0.5px;">News</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Content Card -->
+                    <tr>
+                        <td>
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #111827; border-radius: 16px; border: 1px solid #223047;">
+                                <tr>
+                                    <td style="padding: 32px;">
+                                        <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: #E5E7EB;">
+                                            You're in!
+                                        </h2>
+                                        <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 22px; color: #94A3B8;">
+                                            Welcome to the kernel brief. Your first digest arrives tomorrow at <strong style="color: #E5E7EB;">{{ delivery_time_display }}</strong>{% if timezone_display %} ({{ timezone_display }}){% endif %}.
+                                        </p>
+
+                                        <!-- What you get -->
+                                        <div style="margin: 0 0 24px 0; padding: 16px; background-color: #0B0F14; border-radius: 8px;">
+                                            <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #E5E7EB; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                What you get
+                                            </p>
+                                            <ul style="margin: 0; padding: 0 0 0 20px; font-size: 14px; line-height: 22px; color: #94A3B8;">
+                                                <li style="margin-bottom: 4px;">10 curated tech stories daily</li>
+                                                <li style="margin-bottom: 4px;">Key takeaways in 2 min read</li>
+                                                <li>No noise, just signal</li>
+                                            </ul>
+                                        </div>
+
+                                        <!-- Settings Button -->
+                                        <p style="margin: 0 0 12px 0; font-size: 13px; color: #94A3B8;">
+                                            Want to change your delivery time?
+                                        </p>
+                                        <table role="presentation" style="border-collapse: collapse;">
+                                            <tr>
+                                                <td style="border-radius: 8px; background-color: #22D3EE;">
+                                                    <a href="{{ settings_url }}"
+                                                       target="_blank"
+                                                       style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 600; color: #0B0F14; text-decoration: none; border-radius: 8px;">
+                                                        Personalize Settings
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px 32px; text-align: center;">
+                            <p style="margin: 0 0 12px 0; font-size: 12px; color: #94A3B8;">
+                                <a href="https://x.com/NoyauNews" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">X</a>
+                                <span style="color: #223047;">&bull;</span>
+                                <a href="https://www.youtube.com/channel/UC8ObkWnKP4UPzi2qku2TlXw" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">YouTube</a>
+                                <span style="color: #223047;">&bull;</span>
+                                <a href="https://discord.gg/YCbuNqFucb" target="_blank" style="color: #22D3EE; text-decoration: none; margin: 0 6px;">Discord</a>
+                            </p>
+                            <p style="margin: 0 0 12px 0; font-size: 12px; line-height: 18px; color: #94A3B8;">
+                                NoyauNews - Daily engineering digest<br>
+                                <a href="https://noyau.news" style="color: #94A3B8; text-decoration: underline;">noyau.news</a>
+                            </p>
+                            <p style="margin: 0; font-size: 11px; color: #64748B;">
+                                <a href="{{ unsubscribe_url }}" style="color: #64748B; text-decoration: underline;">Unsubscribe</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
