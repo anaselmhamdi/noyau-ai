@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.config import AppConfig, Settings, get_config, get_settings
 from app.core.database import get_db
@@ -29,7 +30,9 @@ async def get_current_user_optional(
     except ValueError:
         return None
 
-    result = await db.execute(select(Session).where(Session.id == session_uuid))
+    result = await db.execute(
+        select(Session).where(Session.id == session_uuid).options(joinedload(Session.user))
+    )
     session = result.scalar_one_or_none()
 
     if not session:
