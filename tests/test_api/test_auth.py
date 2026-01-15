@@ -1,5 +1,7 @@
 """Tests for authentication endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
 
@@ -58,6 +60,57 @@ class TestRequestMagicLink:
 
         assert response.status_code == 400
         assert "valid email" in response.json()["detail"].lower()
+
+
+class TestSubscribe:
+    """Tests for POST /auth/subscribe (optimistic flow)."""
+
+    @patch("app.api.auth._process_subscription", new_callable=AsyncMock)
+    async def test_subscribe_returns_immediately(
+        self, mock_process: AsyncMock, client: AsyncClient
+    ):
+        """Should return ok and redirect without waiting for validation."""
+        response = await client.post(
+            "/auth/subscribe",
+            json={
+                "email": "newuser@gmail.com",
+                "timezone": "America/New_York",
+                "delivery_time_local": "08:00",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["redirect"] == "/welcome"
+        # No session cookie in optimistic flow
+        assert "session_id" not in response.cookies
+        # Background task was queued
+        mock_process.assert_called_once_with(
+            email="newuser@gmail.com",
+            timezone="America/New_York",
+            delivery_time_local="08:00",
+        )
+
+    async def test_subscribe_invalid_email_format(self, client: AsyncClient):
+        """Should reject malformed email addresses."""
+        response = await client.post(
+            "/auth/subscribe",
+            json={"email": "not-an-email"},
+        )
+
+        assert response.status_code == 422  # Pydantic validation error
+
+    @patch("app.api.auth._process_subscription", new_callable=AsyncMock)
+    async def test_subscribe_with_defaults(self, mock_process: AsyncMock, client: AsyncClient):
+        """Should work with just email, using defaults for timezone/time."""
+        response = await client.post(
+            "/auth/subscribe",
+            json={"email": "minimal@gmail.com"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["ok"] is True
 
 
 class TestVerifyMagicLink:
