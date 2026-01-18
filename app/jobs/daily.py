@@ -208,18 +208,20 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
 
             # =====================================================================
             # GENERATE: Video - must run before dispatchers
+            # Use fresh session - video generation is long-running and can drop connections
             # =====================================================================
             video_results: list = []
             ranked_with_summaries = result.get("ranked_with_summaries", [])
             if config.video.enabled:
                 try:
-                    video_results = await generate_videos_for_issue(
-                        issue_date=issue_date,
-                        ranked_with_summaries=ranked_with_summaries,
-                        db=db,
-                        dry_run=False,
-                        skip_youtube=True,  # YouTube is now a dispatcher
-                    )
+                    async with AsyncSessionLocal() as video_db:
+                        video_results = await generate_videos_for_issue(
+                            issue_date=issue_date,
+                            ranked_with_summaries=ranked_with_summaries,
+                            db=video_db,
+                            dry_run=False,
+                            skip_youtube=True,  # YouTube is now a dispatcher
+                        )
                     logger.bind(videos_generated=len(video_results)).info("videos_generated")
                 except Exception as e:
                     logger.bind(error=str(e)).error("video_generation_failed")
@@ -227,14 +229,16 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
 
             # =====================================================================
             # GENERATE: Podcast - must run before dispatchers
+            # Use fresh session - podcast generation is long-running and can drop connections
             # =====================================================================
             if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
                 try:
-                    podcast_result = await generate_podcast_for_issue(
-                        db=db,
-                        issue_date=issue_date,
-                        skip_video=False,
-                    )
+                    async with AsyncSessionLocal() as podcast_db:
+                        podcast_result = await generate_podcast_for_issue(
+                            db=podcast_db,
+                            issue_date=issue_date,
+                            skip_video=False,
+                        )
                     if podcast_result.get("success"):
                         logger.bind(
                             audio_url=podcast_result.get("audio_url"),
@@ -393,6 +397,7 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
 
             # =====================================================================
             # DISPATCH: YouTube Podcast
+            # Use fresh session to avoid poisoned session from earlier failures
             # =====================================================================
             if hasattr(config, "podcast") and config.podcast and config.podcast.enabled:
                 try:
@@ -400,28 +405,31 @@ async def main(dry_run: bool = False, skip_email: bool = False) -> None:
 
                     from app.models.issue import Issue
 
-                    # Fetch issue record with podcast data
-                    issue_result = await db.execute(
-                        select(Issue).where(Issue.issue_date == issue_date)
-                    )
-                    issue = issue_result.scalar_one_or_none()
-
-                    if issue and issue.podcast_audio_url:
-                        youtube_podcast_result = await send_youtube_podcast(
-                            issue_date=issue_date,
-                            issue=issue,
+                    # Use fresh session - earlier long-running operations may have
+                    # caused connection drops that poisoned the main session
+                    async with AsyncSessionLocal() as podcast_db:
+                        # Fetch issue record with podcast data
+                        issue_result = await podcast_db.execute(
+                            select(Issue).where(Issue.issue_date == issue_date)
                         )
-                        if youtube_podcast_result.success:
-                            # Update issue with YouTube URL
-                            issue.podcast_youtube_url = youtube_podcast_result.video_url
-                            await db.commit()
-                            logger.bind(
-                                youtube_url=youtube_podcast_result.video_url,
-                                message=youtube_podcast_result.message,
-                            ).info("youtube_podcast_posted")
-                        dispatch_results["youtube_podcast"] = youtube_podcast_result.success
-                    else:
-                        logger.debug("no_podcast_available_for_youtube")
+                        issue = issue_result.scalar_one_or_none()
+
+                        if issue and issue.podcast_audio_url:
+                            youtube_podcast_result = await send_youtube_podcast(
+                                issue_date=issue_date,
+                                issue=issue,
+                            )
+                            if youtube_podcast_result.success:
+                                # Update issue with YouTube URL
+                                issue.podcast_youtube_url = youtube_podcast_result.video_url
+                                await podcast_db.commit()
+                                logger.bind(
+                                    youtube_url=youtube_podcast_result.video_url,
+                                    message=youtube_podcast_result.message,
+                                ).info("youtube_podcast_posted")
+                            dispatch_results["youtube_podcast"] = youtube_podcast_result.success
+                        else:
+                            logger.debug("no_podcast_available_for_youtube")
                 except Exception as e:
                     logger.bind(error=str(e)).error("youtube_podcast_send_failed")
                     dispatch_results["youtube_podcast"] = False
