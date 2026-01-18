@@ -42,7 +42,14 @@ def _fix_neon_url(url: str) -> tuple[str, dict]:
         return clean_url, {}
     else:
         ssl_context = ssl.create_default_context()
-        return clean_url, {"ssl": ssl_context}
+        return clean_url, {
+            "ssl": ssl_context,
+            "server_settings": {
+                "tcp_keepalives_idle": "30",  # Start probes after 30s idle
+                "tcp_keepalives_interval": "10",  # Probe every 10s
+                "tcp_keepalives_count": "3",  # Drop after 3 failed probes
+            },
+        }
 
 
 clean_url, connect_args = _fix_neon_url(settings.database_url)
@@ -54,7 +61,7 @@ engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
-    pool_recycle=280,  # Recycle connections before Neon's 5min idle timeout
+    pool_recycle=120,  # Recycle connections before Neon's 5min idle timeout
     connect_args=connect_args,
 )
 
@@ -68,7 +75,7 @@ scheduler_engine = create_async_engine(
     pool_pre_ping=True,
     pool_size=2,
     max_overflow=2,
-    pool_recycle=180,  # More aggressive recycling for scheduler
+    pool_recycle=120,  # More aggressive recycling for scheduler
     connect_args=connect_args,
 )
 
