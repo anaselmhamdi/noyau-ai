@@ -89,11 +89,10 @@ class YouTubeUploader:
             return self._service
 
         except Exception as e:
-            logger.bind(
-                error=str(e),
-                error_type=type(e).__name__,
-                traceback=traceback.format_exc(),
-            ).error("youtube_service_initialization_error")
+            logger.error(
+                f"youtube_service_initialization_error: {type(e).__name__}: {e}\n"
+                f"{traceback.format_exc()}"
+            )
             return None
 
     async def upload_video(
@@ -170,22 +169,13 @@ class YouTubeUploader:
             return video_id, video_url
 
         except HttpError as e:
-            logger.bind(
-                error=str(e),
-                error_type="HttpError",
-                status_code=e.resp.status if e.resp else None,
-                reason=e.error_details if hasattr(e, "error_details") else None,
-                title=metadata.title,
-                traceback=traceback.format_exc(),
-            ).error("youtube_upload_http_error")
+            status = e.resp.status if e.resp else "unknown"
+            logger.error(
+                f"youtube_upload_http_error: status={status} error={e}\n{traceback.format_exc()}"
+            )
             return None
         except Exception as e:
-            logger.bind(
-                error=str(e),
-                error_type=type(e).__name__,
-                title=metadata.title,
-                traceback=traceback.format_exc(),
-            ).error("youtube_upload_error")
+            logger.error(f"youtube_upload_error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
             return None
 
     async def set_thumbnail(
@@ -222,21 +212,17 @@ class YouTubeUploader:
             return True
 
         except HttpError as e:
-            logger.bind(
-                video_id=video_id,
-                error=str(e),
-                error_type="HttpError",
-                status_code=e.resp.status if e.resp else None,
-                traceback=traceback.format_exc(),
-            ).error("youtube_thumbnail_http_error")
+            status = e.resp.status if e.resp else "unknown"
+            logger.error(
+                f"youtube_thumbnail_http_error: video_id={video_id} status={status} error={e}\n"
+                f"{traceback.format_exc()}"
+            )
             return False
         except Exception as e:
-            logger.bind(
-                video_id=video_id,
-                error=str(e),
-                error_type=type(e).__name__,
-                traceback=traceback.format_exc(),
-            ).error("youtube_thumbnail_error")
+            logger.error(
+                f"youtube_thumbnail_error: video_id={video_id} {type(e).__name__}: {e}\n"
+                f"{traceback.format_exc()}"
+            )
             return False
 
 
