@@ -475,7 +475,7 @@ def _build_combined_caption_file(summaries: list[ClusterDistillOutput], issue_da
         hashtags = " ".join(f"#{tag}" for tag in config.tiktok.default_hashtags)
 
     # Build headlines list
-    headlines_text = "\n".join(f"{i+1}. {s.headline}" for i, s in enumerate(summaries))
+    headlines_text = "\n".join(f"{i + 1}. {s.headline}" for i, s in enumerate(summaries))
 
     # Build the ready-to-copy caption
     copy_paste_caption = f"{date_str} | Daily Tech Digest\n\nToday's top stories:\n{headlines_text}"
