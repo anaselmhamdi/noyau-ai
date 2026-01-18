@@ -1,10 +1,12 @@
 """YouTube upload functionality using YouTube Data API v3."""
 
+import traceback
 from pathlib import Path
 from typing import Protocol
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 from app.config import get_settings
@@ -87,7 +89,11 @@ class YouTubeUploader:
             return self._service
 
         except Exception as e:
-            logger.bind(error=str(e)).error("youtube_service_initialization_error")
+            logger.bind(
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            ).error("youtube_service_initialization_error")
             return None
 
     async def upload_video(
@@ -163,10 +169,22 @@ class YouTubeUploader:
 
             return video_id, video_url
 
+        except HttpError as e:
+            logger.bind(
+                error=str(e),
+                error_type="HttpError",
+                status_code=e.resp.status if e.resp else None,
+                reason=e.error_details if hasattr(e, "error_details") else None,
+                title=metadata.title,
+                traceback=traceback.format_exc(),
+            ).error("youtube_upload_http_error")
+            return None
         except Exception as e:
             logger.bind(
                 error=str(e),
+                error_type=type(e).__name__,
                 title=metadata.title,
+                traceback=traceback.format_exc(),
             ).error("youtube_upload_error")
             return None
 
@@ -203,8 +221,22 @@ class YouTubeUploader:
             logger.bind(video_id=video_id).info("youtube_thumbnail_set")
             return True
 
+        except HttpError as e:
+            logger.bind(
+                video_id=video_id,
+                error=str(e),
+                error_type="HttpError",
+                status_code=e.resp.status if e.resp else None,
+                traceback=traceback.format_exc(),
+            ).error("youtube_thumbnail_http_error")
+            return False
         except Exception as e:
-            logger.bind(video_id=video_id, error=str(e)).error("youtube_thumbnail_error")
+            logger.bind(
+                video_id=video_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            ).error("youtube_thumbnail_error")
             return False
 
 
