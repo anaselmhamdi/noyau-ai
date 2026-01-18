@@ -222,6 +222,54 @@ class S3StorageService:
             },
         )
 
+    async def upload_video_caption(
+        self,
+        caption: str,
+        issue_date: str,
+        rank: int,
+        filename: str = "caption.txt",
+    ) -> str | None:
+        """
+        Upload a caption text file alongside a video.
+
+        This is useful for manual TikTok posting when the API is unreliable.
+
+        Args:
+            caption: The caption text content
+            issue_date: Date string for organizing (YYYY-MM-DD)
+            rank: Video rank in the digest
+            filename: Output filename (default: caption.txt)
+
+        Returns:
+            Public URL of the uploaded caption file
+        """
+        if not self._configured:
+            logger.warning("s3_not_configured_skipping_caption_upload")
+            return None
+
+        key = f"videos/{issue_date}/rank_{rank}/{filename}"
+
+        try:
+            self._client.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=caption.encode("utf-8"),
+                ContentType="text/plain; charset=utf-8",
+                ACL="public-read",
+                Metadata={
+                    "issue_date": issue_date,
+                    "rank": str(rank),
+                },
+            )
+
+            url = self._build_public_url(key)
+            logger.bind(key=key, url=url).info("caption_uploaded_to_s3")
+            return url
+
+        except ClientError as e:
+            logger.bind(key=key, error=str(e)).error("s3_caption_upload_failed")
+            return None
+
     async def archive_log_file(
         self,
         log_path: Path,

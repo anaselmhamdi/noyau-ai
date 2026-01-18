@@ -335,15 +335,19 @@ async def _step_upload_s3(
     issue_date: date,
     rank: int,
     log: "Logger",
+    summary: ClusterDistillOutput | None = None,
 ) -> str | None:
     """
     Upload video to S3 for persistent storage.
+
+    Also uploads a caption.txt file alongside the video for manual TikTok posting.
 
     Args:
         video_path: Path to video file
         issue_date: Date of the issue
         rank: Rank in daily digest
         log: Bound logger instance
+        summary: Optional cluster summary for building caption
 
     Returns:
         S3 URL if successful, None otherwise
@@ -362,7 +366,137 @@ async def _step_upload_s3(
     if s3_url:
         log.bind(s3_url=s3_url).info("video_uploaded_to_s3")
 
+        # Upload caption.txt alongside video for manual TikTok posting
+        if summary:
+            caption_text = _build_caption_file(summary, issue_date, rank)
+            caption_url = await storage.upload_video_caption(
+                caption=caption_text,
+                issue_date=issue_date.isoformat(),
+                rank=rank,
+            )
+            if caption_url:
+                log.bind(caption_url=caption_url).info("caption_uploaded_to_s3")
+
     return s3_url
+
+
+def _build_caption_file(summary: ClusterDistillOutput, issue_date: date, rank: int) -> str:
+    """Build a caption text file for manual TikTok posting."""
+    from app.config import get_config
+
+    config = get_config()
+    date_str = issue_date.strftime("%b %d, %Y")
+
+    # Build hashtag string
+    hashtags = ""
+    if config.tiktok.include_hashtags and config.tiktok.default_hashtags:
+        hashtags = " ".join(f"#{tag}" for tag in config.tiktok.default_hashtags)
+
+    # Build the ready-to-copy caption
+    copy_paste_caption = f"{date_str} | {summary.headline}\n\n{summary.teaser}"
+    if hashtags:
+        copy_paste_caption += f"\n\n{hashtags}"
+    copy_paste_caption += "\n\nMore signal, less noise: noyau.news"
+
+    return f"""Date: {date_str}
+Rank: #{rank}
+
+HEADLINE:
+{summary.headline}
+
+TEASER:
+{summary.teaser}
+
+HASHTAGS:
+{hashtags if hashtags else "(none configured)"}
+
+---
+Copy-paste caption for TikTok:
+
+{copy_paste_caption}
+"""
+
+
+async def _step_upload_combined_s3(
+    video_path: Path,
+    issue_date: date,
+    summaries: list[ClusterDistillOutput],
+    log: "Logger",
+) -> str | None:
+    """
+    Upload combined video to S3 with caption file.
+
+    Args:
+        video_path: Path to video file
+        issue_date: Date of the issue
+        summaries: List of cluster summaries for building caption
+        log: Bound logger instance
+
+    Returns:
+        S3 URL if successful, None otherwise
+    """
+    storage = get_storage_service()
+    if not storage.is_configured():
+        return None
+
+    log.info("uploading_combined_to_s3")
+    s3_url = await storage.upload_video(
+        video_path=video_path,
+        issue_date=issue_date.isoformat(),
+        rank=0,
+    )
+
+    if s3_url:
+        log.bind(s3_url=s3_url).info("combined_video_uploaded_to_s3")
+
+        # Upload caption.txt for manual TikTok posting
+        caption_text = _build_combined_caption_file(summaries, issue_date)
+        caption_url = await storage.upload_video_caption(
+            caption=caption_text,
+            issue_date=issue_date.isoformat(),
+            rank=0,
+        )
+        if caption_url:
+            log.bind(caption_url=caption_url).info("combined_caption_uploaded_to_s3")
+
+    return s3_url
+
+
+def _build_combined_caption_file(summaries: list[ClusterDistillOutput], issue_date: date) -> str:
+    """Build a caption text file for combined video manual TikTok posting."""
+    from app.config import get_config
+
+    config = get_config()
+    date_str = issue_date.strftime("%b %d, %Y")
+
+    # Build hashtag string
+    hashtags = ""
+    if config.tiktok.include_hashtags and config.tiktok.default_hashtags:
+        hashtags = " ".join(f"#{tag}" for tag in config.tiktok.default_hashtags)
+
+    # Build headlines list
+    headlines_text = "\n".join(f"{i+1}. {s.headline}" for i, s in enumerate(summaries))
+
+    # Build the ready-to-copy caption
+    copy_paste_caption = f"{date_str} | Daily Tech Digest\n\nToday's top stories:\n{headlines_text}"
+    if hashtags:
+        copy_paste_caption += f"\n\n{hashtags}"
+    copy_paste_caption += "\n\nMore signal, less noise: noyau.news"
+
+    return f"""Date: {date_str}
+Type: Combined Digest
+
+HEADLINES:
+{headlines_text}
+
+HASHTAGS:
+{hashtags if hashtags else "(none configured)"}
+
+---
+Copy-paste caption for TikTok:
+
+{copy_paste_caption}
+"""
 
 
 async def _step_upload_youtube(
@@ -527,8 +661,8 @@ async def generate_single_video(
             db, video_record, VideoStatus.GENERATING, video_path=str(video_path)
         )
 
-        # Step 5: Upload to S3
-        s3_url = await _step_upload_s3(video_path, issue_date, rank, log)
+        # Step 5: Upload to S3 (includes caption.txt for manual TikTok posting)
+        s3_url = await _step_upload_s3(video_path, issue_date, rank, log, summary=summary)
         if s3_url:
             result.s3_url = s3_url
             await _update_video_status(db, video_record, VideoStatus.GENERATING, s3_url=s3_url)
@@ -803,8 +937,8 @@ async def generate_combined_video(
             log.warning("combined_video_composition_failed")
             return None
 
-        # Step 6: Upload to S3
-        s3_url = await _step_upload_s3(video_path, issue_date, rank=0, log=log)
+        # Step 6: Upload to S3 (with combined caption for manual posting)
+        s3_url = await _step_upload_combined_s3(video_path, issue_date, summaries, log)
         if s3_url:
             result.s3_url = s3_url
 
