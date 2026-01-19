@@ -14,11 +14,11 @@ from datetime import date, datetime
 from typing import Any
 
 from apscheduler import AsyncScheduler, ConflictPolicy, JobOutcome, JobReleased
-from apscheduler.datastores.sqlalchemy import SQLAlchemyDataStore
+from apscheduler.datastores.memory import MemoryDataStore
 from apscheduler.triggers.cron import CronTrigger
 
 from app.config import get_settings
-from app.core.database import AsyncSessionLocal, scheduler_engine
+from app.core.database import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.ingest.orchestrator import run_hourly_ingest
 
@@ -166,9 +166,9 @@ async def start_scheduler() -> AsyncScheduler | None:
         logger.info("scheduler_disabled_by_config")
         return None
 
-    # Use PostgreSQL for job persistence and schedule coordination
-    # Uses dedicated scheduler_engine with aggressive connection recycling
-    data_store = SQLAlchemyDataStore(scheduler_engine)
+    # Use in-memory storage to avoid Neon connection drop crashes
+    # Trade-off: schedules don't persist across restarts, but scheduler won't crash
+    data_store = MemoryDataStore()
     scheduler = AsyncScheduler(data_store=data_store)
 
     # Start the scheduler first (required before calling other methods in APScheduler 4.x)
